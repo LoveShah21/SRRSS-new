@@ -80,7 +80,7 @@ router.put('/profile', authenticate, authorize('candidate'), asyncHandler(async 
   const user = await User.findByIdAndUpdate(
     req.user._id,
     { $set: updateFields },
-    { new: true },
+    { returnDocument: 'after' },
   );
 
   res.json({ message: 'Profile updated.', profile: user.profile });

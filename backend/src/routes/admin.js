@@ -51,7 +51,7 @@ router.patch('/users/:id/role', asyncHandler(async (req, res) => {
   const user = await User.findByIdAndUpdate(
     req.params.id,
     { role },
-    { new: true },
+    { returnDocument: 'after' },
   );
   if (!user) throw new AppError('User not found.', 404);
 
