@@ -1,4 +1,23 @@
-fastapi==0.115.0
-uvicorn[standard]==0.30.0
-pydantic==2.8.0
-python-multipart==0.0.9
+# FastAPI for API
+fastapi
+uvicorn[standard]
+pydantic
+python-multipart
+
+# HTTP client for testing
+httpx
+
+# Resume parsing
+pdfplumber
+python-docx
+
+# NLP for bias detection
+nltk
+
+# Testing
+pytest
+pytest-asyncio
+pytest-cov
+
+# Utilities
+python-dotenv

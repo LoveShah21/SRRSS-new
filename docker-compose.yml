@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7
+    container_name: srrss-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: admin123
+      MONGO_INITDB_DATABASE: srrss
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - srrss-network
+
+  # Backend API (Node.js)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: srrss-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      MONGODB_URI: mongodb://admin:admin123@mongodb:27017/srrss?authSource=admin
+      DB_NAME: srrss
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-me}
+      JWT_EXPIRES_IN: 15m
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-your-refresh-secret-change-me}
+      JWT_REFRESH_EXPIRES_IN: 7d
+      AI_SERVICE_URL: http://ai-service:8000
+      UPLOAD_DIR: /app/uploads
+      CLIENT_URL: ${CLIENT_URL:-http://localhost:5173}
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mongodb
+      - ai-service
+    volumes:
+      - backend_uploads:/app/uploads
+    networks:
+      - srrss-network
+
+  # AI Service (Python)
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: srrss-ai-service
+    restart: unless-stopped
+    environment:
+      PORT: 8000
+      PYTHONUNBUFFERED: 1
+    ports:
+      - "8000:8000"
+    volumes:
+      - ai_uploads:/app/uploads
+    networks:
+      - srrss-network
+
+  # Frontend (optional - can run locally during dev)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: srrss-frontend
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: http://localhost:5000/api
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    networks:
+      - srrss-network
+
+networks:
+  srrss-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+    driver: local
+  backend_uploads:
+    driver: local
+  ai_uploads:
+    driver: local

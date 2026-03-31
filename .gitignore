@@ -1,8 +1,64 @@
+# Dependencies
 node_modules/
+**/node_modules/
+
+# Environment variables
 .env
-uploads/
-*.log
-coverage/
-venv/
-__pycache__/
+.env.local
+.env.*.local
+
+# Build output
 dist/
+**/dist/
+build/
+**/build/
+
+# Uploads
+uploads/*
+!uploads/.gitkeep
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+coverage/
+**/coverage/
+.pytest_cache/
+.tox/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+
+# Docker
+.docker/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Test artifacts
+test-results/
+playwright-report/
+
+
+20*
+.claude/
