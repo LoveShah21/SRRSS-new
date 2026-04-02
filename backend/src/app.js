@@ -3,32 +3,75 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
-const path = require('path');
 const fs = require('fs');
 
+const logger = require('./utils/logger');
 const authRoutes = require('./routes/auth');
 const jobRoutes = require('./routes/jobs');
 const applicationRoutes = require('./routes/applications');
 const resumeRoutes = require('./routes/resume');
 const adminRoutes = require('./routes/admin');
+const interviewRoutes = require('./routes/interviews');
+const candidateRoutes = require('./routes/candidates');
+const reportRoutes = require('./routes/reports');
+const auditLogRoutes = require('./routes/auditLogs');
 const { errorHandler } = require('./middleware/errorHandler');
 
 const app = express();
 
 // ─── Security ────────────────────────────────────────────
 app.use(helmet());
+
+// Parse allowed origins from env (comma-separated)
+const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
+  .split(',')
+  .map((o) => o.trim());
+
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    // Allow requests with no origin (Postman, curl, server-to-server)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    callback(new Error(`Origin ${origin} not allowed by CORS`));
+  },
   credentials: true,
 }));
 
 // ─── Rate Limiting ───────────────────────────────────────
-const limiter = rateLimit({
+// General API limiter
+const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
+  max: 200,
   message: { error: 'Too many requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'test',
 });
-app.use('/api/', limiter);
+app.use('/api/', generalLimiter);
+
+// Stricter limiter for auth endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { error: 'Too many authentication attempts, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'test',
+});
+app.use('/api/auth/', authLimiter);
+
+// Upload limiter
+const uploadLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10,
+  message: { error: 'Too many uploads, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'test',
+});
+app.use('/api/resume/upload', uploadLimiter);
 
 // ─── Body Parsing ────────────────────────────────────────
 app.use(express.json({ limit: '10mb' }));
@@ -36,15 +79,19 @@ app.use(express.urlencoded({ extended: true }));
 
 // ─── Logging ─────────────────────────────────────────────
 if (process.env.NODE_ENV !== 'test') {
-  app.use(morgan('dev'));
+  // Use Winston-backed Morgan for HTTP request logging
+  app.use(morgan('combined', { stream: logger.stream }));
 }
 
-// ─── Uploads Directory ───────────────────────────────────
-const uploadDir = process.env.UPLOAD_DIR || './uploads';
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
+// ─── File Storage ────────────────────────────────────────
+// Files are stored in Cloudflare R2 (S3-compatible) and served
+// via presigned URLs. No local static file serving is needed.
+
+// ─── Logs Directory ──────────────────────────────────────
+const logDir = process.env.LOG_DIR || 'logs';
+if (!fs.existsSync(logDir)) {
+  fs.mkdirSync(logDir, { recursive: true });
 }
-app.use('/uploads', express.static(path.join(__dirname, '..', uploadDir)));
 
 // ─── API Routes ──────────────────────────────────────────
 app.use('/api/auth', authRoutes);
@@ -52,6 +99,10 @@ app.use('/api/jobs', jobRoutes);
 app.use('/api/applications', applicationRoutes);
 app.use('/api/resume', resumeRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/interviews', interviewRoutes);
+app.use('/api/candidates', candidateRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/audit-logs', auditLogRoutes);
 
 // ─── Health Check ────────────────────────────────────────
 app.get('/api/health', (req, res) => {
@@ -59,6 +110,7 @@ app.get('/api/health', (req, res) => {
     status: 'ok',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
+    version: process.env.npm_package_version || '1.0.0',
   });
 });
 

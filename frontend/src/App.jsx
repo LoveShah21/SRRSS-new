@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
+import LandingPage from './pages/landing/LandingPage';
 import Navbar from './components/Navbar';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -8,6 +9,13 @@ import JobBoard from './pages/JobBoard';
 import JobDetail from './pages/JobDetail';
 import MyApplications from './pages/MyApplications';
 import AdminConsole from './pages/AdminConsole';
+
+// New pages — Batch 5 implementation
+import Profile from './pages/candidate/Profile';
+import CandidateList from './pages/recruiter/CandidateList';
+import InterviewScheduler from './pages/recruiter/InterviewScheduler';
+import Reports from './pages/recruiter/Reports';
+import AuditLogs from './pages/admin/AuditLogs';
 
 function ProtectedRoute({ children, roles }) {
   const { isAuthenticated, user, loading } = useAuth();
@@ -33,11 +41,12 @@ export default function App() {
     <>
       {isAuthenticated && <Navbar />}
       <Routes>
-        {/* Public */}
+        {/* Public — Landing Page */}
+        <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
 
-        {/* Protected */}
+        {/* Protected — All Roles */}
         <Route path="/dashboard" element={
           <ProtectedRoute><Dashboard /></ProtectedRoute>
         } />
@@ -47,15 +56,36 @@ export default function App() {
         <Route path="/jobs/:id" element={
           <ProtectedRoute><JobDetail /></ProtectedRoute>
         } />
+
+        {/* Candidate Routes */}
         <Route path="/applications" element={
           <ProtectedRoute roles={['candidate']}><MyApplications /></ProtectedRoute>
         } />
+        <Route path="/profile" element={
+          <ProtectedRoute roles={['candidate']}><Profile /></ProtectedRoute>
+        } />
+
+        {/* Recruiter Routes */}
+        <Route path="/candidates" element={
+          <ProtectedRoute roles={['recruiter', 'admin']}><CandidateList /></ProtectedRoute>
+        } />
+        <Route path="/interviews" element={
+          <ProtectedRoute roles={['recruiter', 'admin']}><InterviewScheduler /></ProtectedRoute>
+        } />
+        <Route path="/reports" element={
+          <ProtectedRoute roles={['recruiter', 'admin']}><Reports /></ProtectedRoute>
+        } />
+
+        {/* Admin Routes */}
         <Route path="/admin" element={
           <ProtectedRoute roles={['admin']}><AdminConsole /></ProtectedRoute>
         } />
+        <Route path="/admin/audit-logs" element={
+          <ProtectedRoute roles={['admin']}><AuditLogs /></ProtectedRoute>
+        } />
 
         {/* Fallback */}
-        <Route path="*" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />} />
+        <Route path="*" element={<Navigate to={isAuthenticated ? "/dashboard" : "/"} replace />} />
       </Routes>
     </>
   );

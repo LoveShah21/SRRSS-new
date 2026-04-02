@@ -1,18 +1,9 @@
 const multer = require('multer');
-const path = require('path');
 const { AppError } = require('./errorHandler');
 
-// Storage configuration
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, process.env.UPLOAD_DIR || './uploads');
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-    const ext = path.extname(file.originalname);
-    cb(null, `resume-${req.user._id}-${uniqueSuffix}${ext}`);
-  },
-});
+// Use memory storage — files are buffered in memory and then
+// uploaded to Cloudflare R2 in the route handler.
+const storage = multer.memoryStorage();
 
 // File filter — only PDF and DOCX
 const fileFilter = (req, file, cb) => {

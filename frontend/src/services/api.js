@@ -32,6 +32,8 @@ export const authAPI = {
   register: (data) => api.post('/auth/register', data),
   login: (data) => api.post('/auth/login', data),
   me: () => api.get('/auth/me'),
+  logout: () => api.post('/auth/logout'),
+  refresh: (data) => api.post('/auth/refresh', data),
 };
 
 // ─── Jobs ────────────────────────────────────────────
@@ -45,31 +47,59 @@ export const jobsAPI = {
 
 // ─── Applications ────────────────────────────────────
 export const applicationsAPI = {
-  apply: (data) => api.post('/applications', data, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  }),
-  myApplications: () => api.get('/applications/my'),
-  forJob: (jobId) => api.get(`/applications/job/${jobId}`),
-  get: (id) => api.get(`/applications/${id}`),
+  apply: (data) => api.post('/applications', data),
+  myApplications: () => api.get('/applications/me'),
+  forJob: (jobId, params) => api.get(`/applications/job/${jobId}`, { params }),
   updateStatus: (id, data) => api.patch(`/applications/${id}/status`, data),
-  rank: (jobId) => api.post(`/applications/rank/${jobId}`),
+  scheduleInterview: (id, data) => api.patch(`/applications/${id}/interview`, data),
 };
 
-// ─── Resume ──────────────────────────────────────────
+// ─── Resume / Profile ────────────────────────────────
 export const resumeAPI = {
-  parse: (formData) => api.post('/resume/parse', formData, {
+  upload: (formData) => api.post('/resume/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),
-  score: (data) => api.post('/resume/score', data),
-  bias: (data) => api.post('/resume/bias', data),
+  getProfile: () => api.get('/resume/profile'),
+  updateProfile: (data) => api.patch('/resume/profile', data),
+};
+
+// ─── Interviews ──────────────────────────────────────
+export const interviewsAPI = {
+  list: (params) => api.get('/interviews', { params }),
+  get: (id) => api.get(`/interviews/${id}`),
+  create: (data) => api.post('/interviews', data),
+  update: (id, data) => api.patch(`/interviews/${id}`, data),
+  cancel: (id) => api.delete(`/interviews/${id}`),
+};
+
+// ─── Candidates (Recruiter Filter) ──────────────────
+export const candidatesAPI = {
+  list: (params) => api.get('/candidates', { params }),
+};
+
+// ─── Reports ─────────────────────────────────────────
+export const reportsAPI = {
+  candidates: (params) => api.get('/reports/candidates', { params }),
+  candidateDetail: (id) => api.get(`/reports/candidates/${id}`),
+  overview: () => api.get('/reports/overview'),
+  downloadCSV: (params) => api.get('/reports/candidates', {
+    params: { ...params, format: 'csv' },
+    responseType: 'blob',
+  }),
 };
 
 // ─── Admin ───────────────────────────────────────────
 export const adminAPI = {
-  dashboard: () => api.get('/admin/dashboard'),
+  analytics: () => api.get('/admin/analytics'),
   users: (params) => api.get('/admin/users', { params }),
   updateRole: (id, data) => api.patch(`/admin/users/${id}/role`, data),
-  activityLog: () => api.get('/admin/activity-log'),
+  deleteUser: (id) => api.delete(`/admin/users/${id}`),
+};
+
+// ─── Audit Logs ──────────────────────────────────────
+export const auditLogsAPI = {
+  list: (params) => api.get('/audit-logs', { params }),
+  create: (data) => api.post('/audit-logs', data),
 };
 
 export default api;

@@ -1,0 +1,618 @@
+FAIL tests/auditLogs.test.js (7.425 s)
+  ΓùÅ Audit Logs API ΓÇ║ GET /api/audit-logs ΓÇ║ should list audit logs for admin
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 200
+    Received: 401
+
+      23 |         .set('Authorization', `Bearer ${admin.token}`);
+      24 |
+    > 25 |       expect(res.status).toBe(200);
+         |                          ^
+      26 |       expect(res.body.logs).toBeDefined();
+      27 |       expect(Array.isArray(res.body.logs)).toBe(true);
+      28 |       expect(res.body.pagination).toBeDefined();
+
+      at Object.toBe (tests/auditLogs.test.js:25:26)
+
+  ΓùÅ Audit Logs API ΓÇ║ GET /api/audit-logs ΓÇ║ should deny recruiter from audit logs
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 403
+    Received: 401
+
+      34 |         .set('Authorization', `Bearer ${recruiter.token}`);
+      35 |
+    > 36 |       expect(res.status).toBe(403);
+         |                          ^
+      37 |     });
+      38 |
+      39 |     it('should deny candidate from audit logs', async () => {
+
+      at Object.toBe (tests/auditLogs.test.js:36:26)
+
+  ΓùÅ Audit Logs API ΓÇ║ GET /api/audit-logs ΓÇ║ should deny candidate from audit logs
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 403
+    Received: 401
+
+      42 |         .set('Authorization', `Bearer ${candidate.token}`);
+      43 |
+    > 44 |       expect(res.status).toBe(403);
+         |                          ^
+      45 |     });
+      46 |
+      47 |     it('should filter by action', async () => {
+
+      at Object.toBe (tests/auditLogs.test.js:44:26)
+
+  ΓùÅ Audit Logs API ΓÇ║ GET /api/audit-logs ΓÇ║ should filter by action
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 200
+    Received: 401
+
+      55 |         .set('Authorization', `Bearer ${admin.token}`);
+      56 |
+    > 57 |       expect(res.status).toBe(200);
+         |                          ^
+      58 |       expect(res.body.logs.every((l) => l.action.includes('user.create'))).toBe(true);
+      59 |     });
+      60 |   });
+
+      at Object.toBe (tests/auditLogs.test.js:57:26)
+
+  ΓùÅ Audit Logs API ΓÇ║ POST /api/audit-logs ΓÇ║ should create a manual audit log
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 201
+    Received: 401
+
+      71 |         });
+      72 |
+    > 73 |       expect(res.status).toBe(201);
+         |                          ^
+      74 |       expect(res.body.log.action).toBe('manual.test');
+      75 |     });
+      76 |
+
+      at Object.toBe (tests/auditLogs.test.js:73:26)
+
+  ΓùÅ Audit Logs API ΓÇ║ POST /api/audit-logs ΓÇ║ should require action field
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 400
+    Received: 401
+
+      81 |         .send({});
+      82 |
+    > 83 |       expect(res.status).toBe(400);
+         |                          ^
+      84 |     });
+      85 |   });
+      86 |
+
+      at Object.toBe (tests/auditLogs.test.js:83:26)
+
+  ΓùÅ Audit Logs API ΓÇ║ Auto audit logging via mutations ΓÇ║ should auto-log when application status changes
+
+    TypeError: Cannot read properties of undefined (reading '_id')
+
+      92 |         .post('/api/applications')
+      93 |         .set('Authorization', `Bearer ${candidate.token}`)
+    > 94 |         .send({ jobId: job._id });
+         |                            ^
+      95 |
+      96 |       await request
+      97 |         .patch(`/api/applications/${appRes.body.application._id}/status`)
+
+      at Object._id (tests/auditLogs.test.js:94:28)
+
+FAIL tests/candidates.test.js (6.088 s)
+  ΓùÅ Candidates API ΓÇ║ GET /api/candidates ΓÇ║ should list candidates for recruiters
+
+    TypeError: Cannot read properties of undefined (reading '_id')
+
+      27 |       .post('/api/applications')
+      28 |       .set('Authorization', `Bearer ${candidate1.token}`)
+    > 29 |       .send({ jobId: job._id });
+         |                          ^
+      30 |     await request
+      31 |       .post('/api/applications')
+      32 |       .set('Authorization', `Bearer ${candidate2.token}`)
+
+      at Object._id (tests/candidates.test.js:29:26)
+
+  ΓùÅ Candidates API ΓÇ║ GET /api/candidates ΓÇ║ should filter candidates by job
+
+    TypeError: Cannot read properties of undefined (reading '_id')
+
+      27 |       .post('/api/applications')
+      28 |       .set('Authorization', `Bearer ${candidate1.token}`)
+    > 29 |       .send({ jobId: job._id });
+         |                          ^
+      30 |     await request
+      31 |       .post('/api/applications')
+      32 |       .set('Authorization', `Bearer ${candidate2.token}`)
+
+      at Object._id (tests/candidates.test.js:29:26)
+
+  ΓùÅ Candidates API ΓÇ║ GET /api/candidates ΓÇ║ should filter candidates by search term
+
+    TypeError: Cannot read properties of undefined (reading '_id')
+
+      27 |       .post('/api/applications')
+      28 |       .set('Authorization', `Bearer ${candidate1.token}`)
+    > 29 |       .send({ jobId: job._id });
+         |                          ^
+      30 |     await request
+      31 |       .post('/api/applications')
+      32 |       .set('Authorization', `Bearer ${candidate2.token}`)
+
+      at Object._id (tests/candidates.test.js:29:26)
+
+  ΓùÅ Candidates API ΓÇ║ GET /api/candidates ΓÇ║ should deny candidates from accessing the list
+
+    TypeError: Cannot read properties of undefined (reading '_id')
+
+      27 |       .post('/api/applications')
+      28 |       .set('Authorization', `Bearer ${candidate1.token}`)
+    > 29 |       .send({ jobId: job._id });
+         |                          ^
+      30 |     await request
+      31 |       .post('/api/applications')
+      32 |       .set('Authorization', `Bearer ${candidate2.token}`)
+
+      at Object._id (tests/candidates.test.js:29:26)
+
+  ΓùÅ Candidates API ΓÇ║ GET /api/candidates ΓÇ║ should allow admins to list all candidates
+
+    TypeError: Cannot read properties of undefined (reading '_id')
+
+      27 |       .post('/api/applications')
+      28 |       .set('Authorization', `Bearer ${candidate1.token}`)
+    > 29 |       .send({ jobId: job._id });
+         |                          ^
+      30 |     await request
+      31 |       .post('/api/applications')
+      32 |       .set('Authorization', `Bearer ${candidate2.token}`)
+
+      at Object._id (tests/candidates.test.js:29:26)
+
+FAIL tests/reports.test.js (5.587 s)
+  ΓùÅ Reports API ΓÇ║ GET /api/reports/candidates ΓÇ║ should generate JSON report for recruiter
+
+    TypeError: Cannot read properties of undefined (reading '_id')
+
+      15 |       .post('/api/applications')
+      16 |       .set('Authorization', `Bearer ${candidate.token}`)
+    > 17 |       .send({ jobId: job._id });
+         |                          ^
+      18 |   });
+      19 |
+      20 |   describe('GET /api/reports/candidates', () => {
+
+      at Object._id (tests/reports.test.js:17:26)
+
+  ΓùÅ Reports API ΓÇ║ GET /api/reports/candidates ΓÇ║ should filter report by job
+
+    TypeError: Cannot read properties of undefined (reading '_id')
+
+      15 |       .post('/api/applications')
+      16 |       .set('Authorization', `Bearer ${candidate.token}`)
+    > 17 |       .send({ jobId: job._id });
+         |                          ^
+      18 |   });
+      19 |
+      20 |   describe('GET /api/reports/candidates', () => {
+
+      at Object._id (tests/reports.test.js:17:26)
+
+  ΓùÅ Reports API ΓÇ║ GET /api/reports/candidates ΓÇ║ should export CSV when format=csv
+
+    TypeError: Cannot read properties of undefined (reading '_id')
+
+      15 |       .post('/api/applications')
+      16 |       .set('Authorization', `Bearer ${candidate.token}`)
+    > 17 |       .send({ jobId: job._id });
+         |                          ^
+      18 |   });
+      19 |
+      20 |   describe('GET /api/reports/candidates', () => {
+
+      at Object._id (tests/reports.test.js:17:26)
+
+  ΓùÅ Reports API ΓÇ║ GET /api/reports/candidates ΓÇ║ should deny candidates from accessing reports
+
+    TypeError: Cannot read properties of undefined (reading '_id')
+
+      15 |       .post('/api/applications')
+      16 |       .set('Authorization', `Bearer ${candidate.token}`)
+    > 17 |       .send({ jobId: job._id });
+         |                          ^
+      18 |   });
+      19 |
+      20 |   describe('GET /api/reports/candidates', () => {
+
+      at Object._id (tests/reports.test.js:17:26)
+
+  ΓùÅ Reports API ΓÇ║ GET /api/reports/overview ΓÇ║ should return system overview for admin
+
+    TypeError: Cannot read properties of undefined (reading '_id')
+
+      15 |       .post('/api/applications')
+      16 |       .set('Authorization', `Bearer ${candidate.token}`)
+    > 17 |       .send({ jobId: job._id });
+         |                          ^
+      18 |   });
+      19 |
+      20 |   describe('GET /api/reports/candidates', () => {
+
+      at Object._id (tests/reports.test.js:17:26)
+
+  ΓùÅ Reports API ΓÇ║ GET /api/reports/overview ΓÇ║ should deny recruiter from overview
+
+    TypeError: Cannot read properties of undefined (reading '_id')
+
+      15 |       .post('/api/applications')
+      16 |       .set('Authorization', `Bearer ${candidate.token}`)
+    > 17 |       .send({ jobId: job._id });
+         |                          ^
+      18 |   });
+      19 |
+      20 |   describe('GET /api/reports/candidates', () => {
+
+      at Object._id (tests/reports.test.js:17:26)
+
+FAIL tests/interviews.test.js
+  ΓùÅ Interviews API ΓÇ║ POST /api/interviews ΓÇ║ should schedule an interview for a valid application
+
+    TypeError: Cannot read properties of undefined (reading '_id')
+
+      15 |       .post('/api/applications')
+      16 |       .set('Authorization', `Bearer ${candidate.token}`)
+    > 17 |       .send({ jobId: job._id });
+         |                          ^
+      18 |     application = appRes.body.application;
+      19 |   });
+      20 |
+
+      at Object._id (tests/interviews.test.js:17:26)
+
+  ΓùÅ Interviews API ΓÇ║ POST /api/interviews ΓÇ║ should reject scheduling without applicationId
+
+    TypeError: Cannot read properties of undefined (reading '_id')
+
+      15 |       .post('/api/applications')
+      16 |       .set('Authorization', `Bearer ${candidate.token}`)
+    > 17 |       .send({ jobId: job._id });
+         |                          ^
+      18 |     application = appRes.body.application;
+      19 |   });
+      20 |
+
+      at Object._id (tests/interviews.test.js:17:26)
+
+  ΓùÅ Interviews API ΓÇ║ POST /api/interviews ΓÇ║ should reject scheduling by candidates
+
+    TypeError: Cannot read properties of undefined (reading '_id')
+
+      15 |       .post('/api/applications')
+      16 |       .set('Authorization', `Bearer ${candidate.token}`)
+    > 17 |       .send({ jobId: job._id });
+         |                          ^
+      18 |     application = appRes.body.application;
+      19 |   });
+      20 |
+
+      at Object._id (tests/interviews.test.js:17:26)
+
+  ΓùÅ Interviews API ΓÇ║ GET /api/interviews ΓÇ║ should list interviews for recruiter
+
+    TypeError: Cannot read properties of undefined (reading '_id')
+
+      15 |       .post('/api/applications')
+      16 |       .set('Authorization', `Bearer ${candidate.token}`)
+    > 17 |       .send({ jobId: job._id });
+         |                          ^
+      18 |     application = appRes.body.application;
+      19 |   });
+      20 |
+
+      at Object._id (tests/interviews.test.js:17:26)
+
+  ΓùÅ Interviews API ΓÇ║ GET /api/interviews ΓÇ║ should list interviews for candidate (own only)
+
+    TypeError: Cannot read properties of undefined (reading '_id')
+
+      15 |       .post('/api/applications')
+      16 |       .set('Authorization', `Bearer ${candidate.token}`)
+    > 17 |       .send({ jobId: job._id });
+         |                          ^
+      18 |     application = appRes.body.application;
+      19 |   });
+      20 |
+
+      at Object._id (tests/interviews.test.js:17:26)
+
+  ΓùÅ Interviews API ΓÇ║ PATCH /api/interviews/:id ΓÇ║ should update interview details
+
+    TypeError: Cannot read properties of undefined (reading '_id')
+
+      15 |       .post('/api/applications')
+      16 |       .set('Authorization', `Bearer ${candidate.token}`)
+    > 17 |       .send({ jobId: job._id });
+         |                          ^
+      18 |     application = appRes.body.application;
+      19 |   });
+      20 |
+
+      at Object._id (tests/interviews.test.js:17:26)
+
+  ΓùÅ Interviews API ΓÇ║ DELETE /api/interviews/:id ΓÇ║ should cancel an interview
+
+    TypeError: Cannot read properties of undefined (reading '_id')
+
+      15 |       .post('/api/applications')
+      16 |       .set('Authorization', `Bearer ${candidate.token}`)
+    > 17 |       .send({ jobId: job._id });
+         |                          ^
+      18 |     application = appRes.body.application;
+      19 |   });
+      20 |
+
+      at Object._id (tests/interviews.test.js:17:26)
+
+PASS tests/jobs.test.js (12.708 s)
+PASS tests/applications.test.js (10.474 s)
+  ΓùÅ Console
+
+    console.log
+      2026-04-01 15:52:40 [srrss-backend] info: [EMAIL-CONSOLE] To: cand@app.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 15:52:40 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 15:52:40 [srrss-backend] info: [EMAIL-CONSOLE] To: cand@app.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 15:52:40 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 15:52:43 [srrss-backend] info: [EMAIL-CONSOLE] To: cand@app.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 15:52:43 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 15:52:44 [srrss-backend] info: [EMAIL-CONSOLE] To: cand@app.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 15:52:44 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 15:52:45 [srrss-backend] info: [EMAIL-CONSOLE] To: cand@app.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 15:52:45 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 15:52:45 [srrss-backend] info: [EMAIL-CONSOLE] To: cand@app.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 15:52:45 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 15:52:45 [srrss-backend] info: [EMAIL-CONSOLE] To: cand@app.com | Subject: Application Update ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 15:52:45 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      You have been shortlisted! We will be in touch about next steps.
+      
+      Position: Software Engineer
+      New Status: shortlisted
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 15:52:46 [srrss-backend] info: [EMAIL-CONSOLE] To: cand@app.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 15:52:46 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 15:52:46 [srrss-backend] info: [EMAIL-CONSOLE] To: cand@app.com | Subject: Application Update ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 15:52:46 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      An interview has been scheduled for you. Check your dashboard for details.
+      
+      Position: Software Engineer
+      New Status: interview
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 15:52:47 [srrss-backend] info: [EMAIL-CONSOLE] To: cand@app.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 15:52:47 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 15:52:47 [srrss-backend] info: [EMAIL-CONSOLE] To: cand@app.com | Subject: Application Update ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 15:52:47 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Congratulations! You have been selected for the position!
+      
+      Position: Software Engineer
+      New Status: hired
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 15:52:47 [srrss-backend] info: [EMAIL-CONSOLE] To: cand@app.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 15:52:47 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 15:52:48 [srrss-backend] info: [EMAIL-CONSOLE] To: cand@app.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 15:52:48 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 15:52:49 [srrss-backend] info: [EMAIL-CONSOLE] To: cand@app.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 15:52:49 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 15:52:49 [srrss-backend] info: [EMAIL-CONSOLE] To: cand@app.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 15:52:49 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+PASS tests/admin.test.js (7.252 s)
+PASS tests/auth.test.js
+
+Test Suites: 4 failed, 4 passed, 8 total
+Tests:       25 failed, 59 passed, 84 total
+Snapshots:   0 total
+Time:        58.604 s, estimated 59 s
+Ran all test suites.

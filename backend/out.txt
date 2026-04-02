@@ -1,0 +1,755 @@
+FAIL tests/auditLogs.test.js (7.68 s)
+  ΓùÅ Console
+
+    console.log
+      2026-04-01 16:03:30 [srrss-backend] info: [EMAIL-CONSOLE] To: cand-1775039610338@test.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:30 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:30 [srrss-backend] info: [EMAIL-CONSOLE] To: cand-1775039610338@test.com | Subject: Application Update ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:30 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      You have been shortlisted! We will be in touch about next steps.
+      
+      Position: Software Engineer
+      New Status: shortlisted
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+  ΓùÅ Audit Logs API ΓÇ║ GET /api/audit-logs ΓÇ║ should list audit logs for admin
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 200
+    Received: 403
+
+      23 |         .set('Authorization', `Bearer ${admin.token}`);
+      24 |
+    > 25 |       expect(res.status).toBe(200);
+         |                          ^
+      26 |       expect(res.body.logs).toBeDefined();
+      27 |       expect(Array.isArray(res.body.logs)).toBe(true);
+      28 |       expect(res.body.pagination).toBeDefined();
+
+      at Object.toBe (tests/auditLogs.test.js:25:26)
+
+  ΓùÅ Audit Logs API ΓÇ║ GET /api/audit-logs ΓÇ║ should filter by action
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 200
+    Received: 403
+
+      55 |         .set('Authorization', `Bearer ${admin.token}`);
+      56 |
+    > 57 |       expect(res.status).toBe(200);
+         |                          ^
+      58 |       expect(res.body.logs.every((l) => l.action.includes('user.create'))).toBe(true);
+      59 |     });
+      60 |   });
+
+      at Object.toBe (tests/auditLogs.test.js:57:26)
+
+  ΓùÅ Audit Logs API ΓÇ║ POST /api/audit-logs ΓÇ║ should create a manual audit log
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 201
+    Received: 403
+
+      71 |         });
+      72 |
+    > 73 |       expect(res.status).toBe(201);
+         |                          ^
+      74 |       expect(res.body.log.action).toBe('manual.test');
+      75 |     });
+      76 |
+
+      at Object.toBe (tests/auditLogs.test.js:73:26)
+
+  ΓùÅ Audit Logs API ΓÇ║ POST /api/audit-logs ΓÇ║ should require action field
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 400
+    Received: 403
+
+      81 |         .send({});
+      82 |
+    > 83 |       expect(res.status).toBe(400);
+         |                          ^
+      84 |     });
+      85 |   });
+      86 |
+
+      at Object.toBe (tests/auditLogs.test.js:83:26)
+
+  ΓùÅ Audit Logs API ΓÇ║ Auto audit logging via mutations ΓÇ║ should auto-log when application status changes
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 200
+    Received: 403
+
+      104 |         .set('Authorization', `Bearer ${admin.token}`);
+      105 |
+    > 106 |       expect(logsRes.status).toBe(200);
+          |                              ^
+      107 |       expect(logsRes.body.logs.length).toBeGreaterThanOrEqual(1);
+      108 |     });
+      109 |   });
+
+      at Object.toBe (tests/auditLogs.test.js:106:30)
+
+FAIL tests/candidates.test.js (6.555 s)
+  ΓùÅ Console
+
+    console.log
+      2026-04-01 16:03:32 [srrss-backend] info: [EMAIL-CONSOLE] To: c1-1775039611807@test.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:32 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Alice Dev,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:32 [srrss-backend] info: [EMAIL-CONSOLE] To: c2-1775039612080@test.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:32 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Bob Eng,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:33 [srrss-backend] info: [EMAIL-CONSOLE] To: c1-1775039613090@test.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:33 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Alice Dev,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:33 [srrss-backend] info: [EMAIL-CONSOLE] To: c2-1775039613374@test.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:33 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Bob Eng,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:34 [srrss-backend] info: [EMAIL-CONSOLE] To: c1-1775039614315@test.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:34 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Alice Dev,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:34 [srrss-backend] info: [EMAIL-CONSOLE] To: c2-1775039614595@test.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:34 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Bob Eng,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:36 [srrss-backend] info: [EMAIL-CONSOLE] To: c1-1775039615532@test.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:36 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Alice Dev,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:36 [srrss-backend] info: [EMAIL-CONSOLE] To: c2-1775039615804@test.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:36 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Bob Eng,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:37 [srrss-backend] info: [EMAIL-CONSOLE] To: c1-1775039616733@test.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:37 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Alice Dev,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:37 [srrss-backend] info: [EMAIL-CONSOLE] To: c2-1775039617007@test.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:37 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Bob Eng,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+  ΓùÅ Candidates API ΓÇ║ GET /api/candidates ΓÇ║ should allow admins to list all candidates
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 200
+    Received: 403
+
+      77 |         .set('Authorization', `Bearer ${admin.token}`);
+      78 |
+    > 79 |       expect(res.status).toBe(200);
+         |                          ^
+      80 |     });
+      81 |   });
+      82 | });
+
+      at Object.toBe (tests/candidates.test.js:79:26)
+
+FAIL tests/reports.test.js (5.923 s)
+  ΓùÅ Console
+
+    console.log
+      2026-04-01 16:03:38 [srrss-backend] info: [EMAIL-CONSOLE] To: cand-1775039618368@test.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:38 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:39 [srrss-backend] info: [EMAIL-CONSOLE] To: cand-1775039619398@test.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:39 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:40 [srrss-backend] info: [EMAIL-CONSOLE] To: cand-1775039620292@test.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:40 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:41 [srrss-backend] info: [EMAIL-CONSOLE] To: cand-1775039621174@test.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:41 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:42 [srrss-backend] info: [EMAIL-CONSOLE] To: cand-1775039622061@test.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:42 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:43 [srrss-backend] info: [EMAIL-CONSOLE] To: cand-1775039622961@test.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:43 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+  ΓùÅ Reports API ΓÇ║ GET /api/reports/overview ΓÇ║ should return system overview for admin
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 200
+    Received: 403
+
+      65 |         .set('Authorization', `Bearer ${admin.token}`);
+      66 |
+    > 67 |       expect(res.status).toBe(200);
+         |                          ^
+      68 |       expect(res.body.overview).toBeDefined();
+      69 |       expect(res.body.overview.totalJobs).toBeGreaterThanOrEqual(1);
+      70 |     });
+
+      at Object.toBe (tests/reports.test.js:67:26)
+
+PASS tests/jobs.test.js (12.539 s)
+PASS tests/applications.test.js (10.119 s)
+  ΓùÅ Console
+
+    console.log
+      2026-04-01 16:03:56 [srrss-backend] info: [EMAIL-CONSOLE] To: cand@app.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:56 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:57 [srrss-backend] info: [EMAIL-CONSOLE] To: cand@app.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:57 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:59 [srrss-backend] info: [EMAIL-CONSOLE] To: cand@app.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:03:59 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:01 [srrss-backend] info: [EMAIL-CONSOLE] To: cand@app.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:01 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:01 [srrss-backend] info: [EMAIL-CONSOLE] To: cand@app.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:01 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:02 [srrss-backend] info: [EMAIL-CONSOLE] To: cand@app.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:02 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:02 [srrss-backend] info: [EMAIL-CONSOLE] To: cand@app.com | Subject: Application Update ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:02 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      You have been shortlisted! We will be in touch about next steps.
+      
+      Position: Software Engineer
+      New Status: shortlisted
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:02 [srrss-backend] info: [EMAIL-CONSOLE] To: cand@app.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:02 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:02 [srrss-backend] info: [EMAIL-CONSOLE] To: cand@app.com | Subject: Application Update ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:02 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      An interview has been scheduled for you. Check your dashboard for details.
+      
+      Position: Software Engineer
+      New Status: interview
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:03 [srrss-backend] info: [EMAIL-CONSOLE] To: cand@app.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:03 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:03 [srrss-backend] info: [EMAIL-CONSOLE] To: cand@app.com | Subject: Application Update ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:03 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Congratulations! You have been selected for the position!
+      
+      Position: Software Engineer
+      New Status: hired
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:04 [srrss-backend] info: [EMAIL-CONSOLE] To: cand@app.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:04 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:04 [srrss-backend] info: [EMAIL-CONSOLE] To: cand@app.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:04 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:05 [srrss-backend] info: [EMAIL-CONSOLE] To: cand@app.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:05 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:05 [srrss-backend] info: [EMAIL-CONSOLE] To: cand@app.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:05 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+PASS tests/admin.test.js (7.152 s)
+PASS tests/interviews.test.js (5.032 s)
+  ΓùÅ Console
+
+    console.log
+      2026-04-01 16:04:14 [srrss-backend] info: [EMAIL-CONSOLE] To: cand-1775039653846@test.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:14 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:14 [srrss-backend] info: [EMAIL-CONSOLE] To: cand-1775039654538@test.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:14 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:15 [srrss-backend] info: [EMAIL-CONSOLE] To: cand-1775039655145@test.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:15 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:16 [srrss-backend] info: [EMAIL-CONSOLE] To: cand-1775039655751@test.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:16 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:16 [srrss-backend] info: [EMAIL-CONSOLE] To: cand-1775039656424@test.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:16 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:17 [srrss-backend] info: [EMAIL-CONSOLE] To: cand-1775039657128@test.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:17 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:18 [srrss-backend] info: [EMAIL-CONSOLE] To: cand-1775039657781@test.com | Subject: Application Received ΓÇô Software Engineer
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+    console.log
+      2026-04-01 16:04:18 [srrss-backend] info: [EMAIL-CONSOLE] Body: Hi Test User,
+      
+      Your application for "Software Engineer" has been received. We will review it and get back to you.
+      
+      Best regards,
+      SRRSS ΓÇô Smart Recruitment System
+
+      at Console.log (node_modules/winston/lib/winston/transports/console.js:87:23)
+
+PASS tests/auth.test.js
+
+Test Suites: 3 failed, 5 passed, 8 total
+Tests:       7 failed, 77 passed, 84 total
+Snapshots:   0 total
+Time:        59.709 s, estimated 62 s
+Ran all test suites.

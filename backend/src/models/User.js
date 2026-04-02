@@ -42,6 +42,7 @@ const userSchema = new mongoose.Schema({
     education: [educationSchema],
     experience: [experienceSchema],
     resumeUrl: String,
+    resumeKey: String, // Cloudflare R2 object key for presigned URL generation
     parsedAt: Date,
   },
   refreshToken: { type: String, select: false },

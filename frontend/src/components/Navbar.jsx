@@ -31,14 +31,37 @@ export default function Navbar() {
           Jobs
         </NavLink>
         {isCandidate && (
-          <NavLink to="/applications" className={({ isActive }) => `topbar-link ${isActive ? 'active' : ''}`}>
-            My Applications
-          </NavLink>
+          <>
+            <NavLink to="/applications" className={({ isActive }) => `topbar-link ${isActive ? 'active' : ''}`}>
+              My Applications
+            </NavLink>
+            <NavLink to="/profile" className={({ isActive }) => `topbar-link ${isActive ? 'active' : ''}`}>
+              Profile
+            </NavLink>
+          </>
+        )}
+        {(isRecruiter || isAdmin) && (
+          <>
+            <NavLink to="/candidates" className={({ isActive }) => `topbar-link ${isActive ? 'active' : ''}`}>
+              Candidates
+            </NavLink>
+            <NavLink to="/interviews" className={({ isActive }) => `topbar-link ${isActive ? 'active' : ''}`}>
+              Interviews
+            </NavLink>
+            <NavLink to="/reports" className={({ isActive }) => `topbar-link ${isActive ? 'active' : ''}`}>
+              Reports
+            </NavLink>
+          </>
         )}
         {isAdmin && (
-          <NavLink to="/admin" className={({ isActive }) => `topbar-link ${isActive ? 'active' : ''}`}>
-            Admin
-          </NavLink>
+          <>
+            <NavLink to="/admin" className={({ isActive }) => `topbar-link ${isActive ? 'active' : ''}`}>
+              Admin
+            </NavLink>
+            <NavLink to="/admin/audit-logs" className={({ isActive }) => `topbar-link ${isActive ? 'active' : ''}`}>
+              Audit Logs
+            </NavLink>
+          </>
         )}
       </div>
 

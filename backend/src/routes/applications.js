@@ -2,8 +2,11 @@ const express = require('express');
 const axios = require('axios');
 const Application = require('../models/Application');
 const Job = require('../models/Job');
+const User = require('../models/User');
 const { authenticate, authorize } = require('../middleware/auth');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
+const { createAuditEntry } = require('../middleware/auditLogger');
+const { sendStatusChange, sendApplicationReceived } = require('../services/emailService');
 
 const router = express.Router();
 
@@ -55,6 +58,13 @@ router.post('/', authenticate, authorize('candidate'), asyncHandler(async (req, 
 
   // Increment applicant count
   await Job.findByIdAndUpdate(jobId, { $inc: { applicantCount: 1 } });
+
+  // Send confirmation email (non-blocking)
+  sendApplicationReceived({
+    candidateEmail: req.user.email,
+    candidateName: `${req.user.profile?.firstName || ''} ${req.user.profile?.lastName || ''}`.trim(),
+    jobTitle: job.title,
+  }).catch(() => {});
 
   res.status(201).json({ message: 'Application submitted.', application });
 }));
@@ -116,9 +126,13 @@ router.patch('/:id/status', authenticate, authorize('recruiter', 'admin'), async
     throw new AppError(`Status must be one of: ${validStatuses.join(', ')}`, 400);
   }
 
-  const application = await Application.findById(req.params.id);
+  const application = await Application.findById(req.params.id)
+    .populate('candidateId', 'profile email')
+    .populate('jobId', 'title');
+
   if (!application) throw new AppError('Application not found.', 404);
 
+  const previousStatus = application.status;
   application.status = status;
   application.statusHistory.push({
     status,
@@ -127,11 +141,33 @@ router.patch('/:id/status', authenticate, authorize('recruiter', 'admin'), async
   });
 
   await application.save();
+
+  // Send email notification on significant status changes (non-blocking)
+  if (status !== previousStatus && ['shortlisted', 'interview', 'hired', 'rejected'].includes(status)) {
+    sendStatusChange({
+      candidateEmail: application.candidateId?.email,
+      candidateName: `${application.candidateId?.profile?.firstName || ''} ${application.candidateId?.profile?.lastName || ''}`.trim(),
+      jobTitle: application.jobId?.title || 'Unknown Position',
+      newStatus: status,
+    }).catch(() => {});
+  }
+
+  // Audit log
+  await createAuditEntry({
+    action: 'application.statusChange',
+    userId: req.user._id,
+    userRole: req.user.role,
+    targetType: 'application',
+    targetId: application._id,
+    metadata: { previousStatus, newStatus: status },
+    req,
+  });
+
   res.json({ message: `Status updated to "${status}".`, application });
 }));
 
 /**
- * PATCH /api/applications/:id/interview — Schedule interview
+ * PATCH /api/applications/:id/interview — Schedule interview (legacy endpoint)
  */
 router.patch('/:id/interview', authenticate, authorize('recruiter', 'admin'), asyncHandler(async (req, res) => {
   const { scheduledAt, link, notes } = req.body;
@@ -151,6 +187,17 @@ router.patch('/:id/interview', authenticate, authorize('recruiter', 'admin'), as
   }
 
   await application.save();
+
+  await createAuditEntry({
+    action: 'interview.schedule',
+    userId: req.user._id,
+    userRole: req.user.role,
+    targetType: 'application',
+    targetId: application._id,
+    metadata: { scheduledAt },
+    req,
+  });
+
   res.json({ message: 'Interview scheduled.', application });
 }));
 

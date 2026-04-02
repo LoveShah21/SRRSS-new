@@ -142,13 +142,61 @@
 
 ### Scheduling Interviews
 
-1. Click "Schedule Interview" on candidate application
-2. Fill in details:
-   - Date and time
-   - Interview link (Zoom, Teams, etc.)
-   - Interview notes
-3. Click "Save"
-4. Candidate will be notified
+1. Navigate to **"Interviews"** in the top menu
+2. Click **"+ Schedule Interview"**
+3. Select a job posting from the dropdown
+4. Choose a candidate (from shortlisted applications)
+5. Fill in interview details:
+   - **Date & Time**: When the interview takes place
+   - **Duration**: Length in minutes (default: 60)
+   - **Type**: Video, Phone, In-Person, Technical, or HR
+   - **Meeting Link**: Zoom/Teams/Google Meet URL
+   - **Notes**: Topics to discuss, preparation instructions
+6. Click **"Schedule Interview"**
+7. The system will:
+   - Check for scheduling conflicts automatically
+   - Update the application status to "Interview"
+   - Send an email notification to the candidate
+
+> ⚠️ **Conflict Detection**: If the recruiter or candidate already has an interview at the selected time, the system will warn you.
+
+### Managing Interviews
+
+1. View all scheduled interviews on the **Interviews** page
+2. Each interview card shows:
+   - Candidate name and job title
+   - Date/time and duration
+   - Interview type and meeting link
+   - Current status (scheduled, completed, cancelled)
+3. Actions:
+   - **Cancel**: Remove a scheduled interview
+   - Update notes or reschedule via edit
+
+### Candidate Search & Filter
+
+1. Navigate to **"Candidates"** in the top menu
+2. Use filters to find candidates:
+   - **Job**: Filter by specific job posting
+   - **Skills**: Enter skills (comma-separated)
+   - **Min Score**: Set minimum match score threshold
+   - **Status**: Filter by application status
+   - **Search**: Find by candidate name or email
+3. Click **"🔍 Search"** to apply filters
+4. View candidate cards with:
+   - Name, email, and skills
+   - Match score (color-coded: green ≥70, amber ≥40, red <40)
+   - Current application status
+
+### Reports & Export
+
+1. Navigate to **"Reports"** in the top menu
+2. Select filters:
+   - Job posting
+   - Application status
+3. Click **"📊 Generate Report"** to view:
+   - Summary stats (total candidates, average score, hired/interview counts)
+   - Detailed candidate table with match scores and breakdowns
+4. Click **"📥 Download CSV"** to export data for Excel/Google Sheets
 
 ### Analytics Dashboard
 
@@ -158,6 +206,15 @@
    - Average match scores
    - Status distribution
    - Application timeline
+
+### Email Notifications
+
+The system automatically sends email notifications to candidates when:
+- Their application is received
+- Their status changes (shortlisted, interview, hired, rejected)
+- An interview is scheduled
+
+> 📧 **Note**: Email delivery requires SMTP configuration. Without it, notifications are logged to the server console.
 
 ---
 
@@ -199,6 +256,24 @@
 2. Check bias reports
 3. Take action on inappropriate content
 4. Monitor user activity
+
+### Audit Logs
+
+1. Navigate to **"Audit Logs"** from the Admin menu
+2. View a chronological record of all system actions:
+   - Application status changes
+   - Interview scheduling/cancellation
+   - Job creation/updates
+   - User role changes
+3. Filter logs by:
+   - **Action**: Type of action (e.g., "interview.schedule")
+   - **Target Type**: Resource type (application, interview, job, user)
+   - **Date Range**: Start and end dates
+4. Each log entry shows:
+   - Action name with icon
+   - Who performed it (name and role)
+   - Timestamp and IP address
+   - Metadata (JSON details)
 
 ---
 
@@ -252,7 +327,10 @@ A: Use the database directly or API to create a user with admin role.
 A: Currently, users must be created individually through the UI or API.
 
 **Q: How do I view system logs?**
-A: Check the backend server logs or Docker logs for system activity.
+A: Navigate to **Admin → Audit Logs** to see all system actions. For server-level logs, check the `logs/` directory on the backend or Docker logs.
+
+**Q: How do I enable email notifications?**
+A: Set `EMAIL_ENABLED=true` and configure `SMTP_*` variables in your backend `.env` file. Without this, notifications are logged to the console.
 
 ---
 

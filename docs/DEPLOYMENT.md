@@ -182,7 +182,16 @@ sudo certbot --nginx -d your-domain.com
 | JWT_REFRESH_EXPIRES_IN | Refresh token expiry | 7d |
 | AI_SERVICE_URL | AI service endpoint | http://localhost:8000 |
 | UPLOAD_DIR | Upload directory | ./uploads |
-| CLIENT_URL | Frontend URL (CORS) | http://localhost:5173 |
+| CLIENT_URL | Frontend URL(s) for CORS (comma-separated) | http://localhost:5173 |
+| LOG_LEVEL | Winston log level | info |
+| LOG_DIR | Winston log output directory | logs |
+| EMAIL_ENABLED | Enable SMTP email delivery | false |
+| SMTP_HOST | SMTP server hostname | smtp.gmail.com |
+| SMTP_PORT | SMTP server port | 587 |
+| SMTP_SECURE | Use TLS for SMTP | false |
+| SMTP_USER | SMTP auth username | (required if EMAIL_ENABLED) |
+| SMTP_PASS | SMTP auth password | (required if EMAIL_ENABLED) |
+| EMAIL_FROM | Sender email address | noreply@srrss.com |
 
 ### AI Service (.env)
 
