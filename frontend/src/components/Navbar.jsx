@@ -35,6 +35,9 @@ export default function Navbar() {
             <NavLink to="/applications" className={({ isActive }) => `topbar-link ${isActive ? 'active' : ''}`}>
               My Applications
             </NavLink>
+            <NavLink to="/my-interviews" className={({ isActive }) => `topbar-link ${isActive ? 'active' : ''}`}>
+              My Interviews
+            </NavLink>
             <NavLink to="/profile" className={({ isActive }) => `topbar-link ${isActive ? 'active' : ''}`}>
               Profile
             </NavLink>
@@ -50,6 +53,12 @@ export default function Navbar() {
             </NavLink>
             <NavLink to="/reports" className={({ isActive }) => `topbar-link ${isActive ? 'active' : ''}`}>
               Reports
+            </NavLink>
+            <NavLink to="/recruiter/analytics" className={({ isActive }) => `topbar-link ${isActive ? 'active' : ''}`}>
+              Analytics
+            </NavLink>
+            <NavLink to="/recruiter/analytics" className={({ isActive }) => `topbar-link ${isActive ? 'active' : ''}`}>
+              Analytics
             </NavLink>
           </>
         )}

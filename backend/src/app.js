@@ -3,6 +3,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
+const cookieParser = require('cookie-parser');
 const fs = require('fs');
 
 const logger = require('./utils/logger');
@@ -20,7 +21,21 @@ const { errorHandler } = require('./middleware/errorHandler');
 const app = express();
 
 // ─── Security ────────────────────────────────────────────
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'", 'data:'],
+      objectSrc: ["'none'"],
+      frameSrc: ["'none'"],
+      upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null,
+    },
+  },
+}));
 
 // Parse allowed origins from env (comma-separated)
 const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
@@ -73,9 +88,33 @@ const uploadLimiter = rateLimit({
 });
 app.use('/api/resume/upload', uploadLimiter);
 
+// Email resend limiter (prevent email flooding)
+const emailResendLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 3,
+  message: { error: 'Too many verification emails requested. Try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'test',
+});
+app.use('/api/auth/resend-verification', emailResendLimiter);
+app.use('/api/auth/forgot-password', emailResendLimiter);
+
+// Report limiter (prevent expensive aggregation queries)
+const reportLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: 'Too many report requests. Try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'test',
+});
+app.use('/api/reports/', reportLimiter);
+
 // ─── Body Parsing ────────────────────────────────────────
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // ─── Logging ─────────────────────────────────────────────
 if (process.env.NODE_ENV !== 'test') {

@@ -5,6 +5,8 @@ const upload = require('../middleware/upload');
 const { authenticate, authorize } = require('../middleware/auth');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const storageService = require('../services/storageService');
+const { isSafeExternalUrl } = require('../utils/urlValidator');
+const logger = require('../utils/logger');
 
 const router = express.Router();
 
@@ -39,29 +41,31 @@ router.post('/upload', authenticate, authorize('candidate'), upload.single('resu
   let parsedData = null;
   try {
     const aiUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+    const isSafe = await isSafeExternalUrl(aiUrl);
+    if (isSafe) {
+      // Generate a temporary download URL so the AI service can fetch the file
+      const tempDownloadUrl = await storageService.getDownloadUrl(key, 600); // 10 min expiry
 
-    // Generate a temporary download URL so the AI service can fetch the file
-    const tempDownloadUrl = await storageService.getDownloadUrl(key, 600); // 10 min expiry
+      const result = await axios.post(`${aiUrl}/api/parse-resume`, {
+        file_url: tempDownloadUrl,
+        file_path: key,          // fallback identifier
+        file_type: fileType,
+      }, { timeout: 15000 });
 
-    const result = await axios.post(`${aiUrl}/api/parse-resume`, {
-      file_url: tempDownloadUrl,
-      file_path: key,          // fallback identifier
-      file_type: fileType,
-    }, { timeout: 15000 });
+      parsedData = result.data;
 
-    parsedData = result.data;
+      // Auto-fill user profile with parsed data
+      const updateFields = {};
+      if (parsedData.skills?.length) updateFields['profile.skills'] = parsedData.skills;
+      if (parsedData.education?.length) updateFields['profile.education'] = parsedData.education;
+      if (parsedData.experience?.length) updateFields['profile.experience'] = parsedData.experience;
+      updateFields['profile.parsedAt'] = new Date();
 
-    // Auto-fill user profile with parsed data
-    const updateFields = {};
-    if (parsedData.skills?.length) updateFields['profile.skills'] = parsedData.skills;
-    if (parsedData.education?.length) updateFields['profile.education'] = parsedData.education;
-    if (parsedData.experience?.length) updateFields['profile.experience'] = parsedData.experience;
-    updateFields['profile.parsedAt'] = new Date();
-
-    await User.findByIdAndUpdate(req.user._id, { $set: updateFields });
+      await User.findByIdAndUpdate(req.user._id, { $set: updateFields });
+    }
   } catch (err) {
     // AI service unavailable — file is stored, skip parsing
-    console.warn('AI parse failed:', err.message);
+    logger.warn('Resume AI parse failed', { error: err.message });
   }
 
   const updatedUser = await User.findById(req.user._id);

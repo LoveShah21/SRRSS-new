@@ -109,9 +109,29 @@ async function sendApplicationReceived({ candidateEmail, candidateName, jobTitle
   });
 }
 
+async function sendEmailVerification({ to, firstName, verificationUrl }) {
+  return sendEmail({
+    to,
+    subject: 'Verify Your Email – SRRSS',
+    text: `Hi ${firstName},\n\nThank you for registering with ${APP_NAME}.\n\nPlease verify your email address by clicking the link below:\n\n${verificationUrl}\n\nIf you did not create an account, please ignore this email.\n\nBest regards,\n${APP_NAME}`,
+    html: `<h2>Verify Your Email</h2><p>Hi ${firstName},</p><p>Thank you for registering with <strong>${APP_NAME}</strong>.</p><p>Please verify your email address by clicking the button below:</p><p><a href="${verificationUrl}" style="background:#2563eb;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;">Verify Email</a></p><p>Or copy and paste this link in your browser:<br/>${verificationUrl}</p><p>If you did not create an account, please ignore this email.</p><p>Best regards,<br/>${APP_NAME}</p>`,
+  });
+}
+
+async function sendPasswordReset({ to, firstName, resetUrl }) {
+  return sendEmail({
+    to,
+    subject: 'Reset Your Password – SRRSS',
+    text: `Hi ${firstName},\n\nWe received a request to reset your password.\n\nClick the link below to create a new password:\n\n${resetUrl}\n\nThis link will expire in 1 hour.\n\nIf you did not request a password reset, please ignore this email.\n\nBest regards,\n${APP_NAME}`,
+    html: `<h2>Reset Your Password</h2><p>Hi ${firstName},</p><p>We received a request to reset your password.</p><p>Click the button below to create a new password:</p><p><a href="${resetUrl}" style="background:#dc2626;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;">Reset Password</a></p><p>Or copy and paste this link in your browser:<br/>${resetUrl}</p><p>This link will expire in 1 hour.</p><p>If you did not request a password reset, please ignore this email.</p><p>Best regards,<br/>${APP_NAME}</p>`,
+  });
+}
+
 module.exports = {
   sendEmail,
   sendInterviewScheduled,
   sendStatusChange,
   sendApplicationReceived,
+  sendEmailVerification,
+  sendPasswordReset,
 };

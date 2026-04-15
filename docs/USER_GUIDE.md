@@ -80,6 +80,16 @@
 4. View interview details if scheduled
 5. Click on job title to view job details
 
+### Viewing Scheduled Interviews
+
+1. Navigate to **"My Interviews"** from the navigation menu
+2. View all upcoming interviews with:
+   - Job title and interview type
+   - Date, time, and duration
+   - Meeting link (click to join)
+   - Any preparation notes from the recruiter
+3. When Google Calendar integration is enabled, interview events are automatically added to your calendar
+
 ### Profile Management
 
 1. Go to "Profile" page
@@ -157,6 +167,8 @@
    - Check for scheduling conflicts automatically
    - Update the application status to "Interview"
    - Send an email notification to the candidate
+   - Create a Google Calendar event (if calendar integration is enabled)
+   - Send calendar invitations to candidate and recruiter
 
 > ⚠️ **Conflict Detection**: If the recruiter or candidate already has an interview at the selected time, the system will warn you.
 

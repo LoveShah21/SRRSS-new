@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { jobsAPI, applicationsAPI } from '../services/api';
@@ -7,7 +7,6 @@ export default function JobDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isCandidate, isRecruiter, isAdmin } = useAuth();
-  const fileRef = useRef(null);
 
   const [job, setJob] = useState(null);
   const [applications, setApplications] = useState([]);
@@ -15,7 +14,6 @@ export default function JobDetail() {
   const [applying, setApplying] = useState(false);
   const [applied, setApplied] = useState(false);
   const [error, setError] = useState('');
-  const [coverLetter, setCoverLetter] = useState('');
 
   useEffect(() => {
     async function load() {
@@ -40,20 +38,13 @@ export default function JobDetail() {
 
   const handleApply = async (e) => {
     e.preventDefault();
-    const file = fileRef.current?.files?.[0];
-    if (!file) { setError('Please upload your resume'); return; }
-
     setApplying(true);
     setError('');
     try {
-      const formData = new FormData();
-      formData.append('jobId', id);
-      formData.append('resume', file);
-      if (coverLetter) formData.append('coverLetter', coverLetter);
-      await applicationsAPI.apply(formData);
+      await applicationsAPI.apply({ jobId: id });
       setApplied(true);
     } catch (err) {
-      setError(err.response?.data?.message || 'Application failed');
+      setError(err.response?.data?.error || err.response?.data?.message || 'Application failed');
     } finally {
       setApplying(false);
     }
@@ -165,20 +156,22 @@ export default function JobDetail() {
 
             {error && <div className="alert alert-error">{error}</div>}
 
+            <div style={{ marginBottom: 16, padding: 16, background: 'var(--color-surface)', borderRadius: 8, fontSize: 14 }}>
+              <p style={{ fontWeight: 600, marginBottom: 4 }}>📄 Resume Required</p>
+              <p style={{ color: 'var(--color-text-secondary)' }}>
+                Make sure you have uploaded your resume in your{' '}
+                <button
+                  type="button"
+                  onClick={() => navigate('/profile')}
+                  style={{ background: 'none', border: 'none', color: 'var(--color-primary)', cursor: 'pointer', textDecoration: 'underline', padding: 0, font: 'inherit' }}
+                >
+                  Profile page
+                </button>
+                . Your profile will be used for this application.
+              </p>
+            </div>
+
             <form onSubmit={handleApply}>
-              <div className="form-group">
-                <label className="form-label">Resume (PDF)</label>
-                <input ref={fileRef} type="file" accept=".pdf,.doc,.docx" className="form-input" required />
-              </div>
-              <div className="form-group" style={{ marginTop: 16 }}>
-                <label className="form-label">Cover Letter (optional)</label>
-                <textarea
-                  className="form-textarea"
-                  value={coverLetter}
-                  onChange={(e) => setCoverLetter(e.target.value)}
-                  placeholder="Tell the recruiter why you're a great fit…"
-                />
-              </div>
               <button type="submit" className="btn btn-primary btn-lg" disabled={applying} style={{ marginTop: 20 }}>
                 {applying ? <div className="spinner" /> : 'Submit Application'}
               </button>

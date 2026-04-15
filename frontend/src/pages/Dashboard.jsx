@@ -14,8 +14,14 @@ export default function Dashboard() {
     async function loadDashboard() {
       try {
         if (isAdmin) {
-          const res = await adminAPI.dashboard();
-          setStats(res.data);
+          const res = await adminAPI.analytics();
+          const a = res.data.analytics || {};
+          setStats({
+            totalUsers: a.users?.total || 0,
+            totalJobs: a.jobs?.total || 0,
+            totalApplications: a.applications?.total || 0,
+            aiProcessed: 0,
+          });
         }
 
         const jobsRes = await jobsAPI.list({ limit: 5 });

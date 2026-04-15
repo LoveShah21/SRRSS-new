@@ -77,6 +77,10 @@ const interviewSchema = new mongoose.Schema({
     ref: 'User',
     required: true,
   },
+  calendarEventId: {
+    type: String,
+    trim: true,
+  },
 }, {
   timestamps: true,
 });

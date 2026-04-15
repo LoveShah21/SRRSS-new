@@ -10,30 +10,23 @@ export function AuthProvider({ children }) {
   });
   const [loading, setLoading] = useState(true);
 
-  // Verify token on mount
+  // Fetch user on mount (cookies handle auth)
   useEffect(() => {
-    const token = localStorage.getItem('srrss_token');
-    if (token) {
-      authAPI.me()
-        .then(res => {
-          setUser(res.data.user);
-          localStorage.setItem('srrss_user', JSON.stringify(res.data.user));
-        })
-        .catch(() => {
-          localStorage.removeItem('srrss_token');
-          localStorage.removeItem('srrss_user');
-          setUser(null);
-        })
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
-    }
+    authAPI.me()
+      .then(res => {
+        setUser(res.data.user);
+        localStorage.setItem('srrss_user', JSON.stringify(res.data.user));
+      })
+      .catch(() => {
+        localStorage.removeItem('srrss_user');
+        setUser(null);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const login = useCallback(async (email, password) => {
     const res = await authAPI.login({ email, password });
-    const { token, user: userData } = res.data;
-    localStorage.setItem('srrss_token', token);
+    const { user: userData } = res.data;
     localStorage.setItem('srrss_user', JSON.stringify(userData));
     setUser(userData);
     return userData;
@@ -41,15 +34,18 @@ export function AuthProvider({ children }) {
 
   const register = useCallback(async (data) => {
     const res = await authAPI.register(data);
-    const { token, user: userData } = res.data;
-    localStorage.setItem('srrss_token', token);
+    const { user: userData } = res.data;
     localStorage.setItem('srrss_user', JSON.stringify(userData));
     setUser(userData);
     return userData;
   }, []);
 
-  const logout = useCallback(() => {
-    localStorage.removeItem('srrss_token');
+  const logout = useCallback(async () => {
+    try {
+      await authAPI.logout();
+    } catch {
+      // Best-effort: server request may fail, still clear local state
+    }
     localStorage.removeItem('srrss_user');
     setUser(null);
   }, []);

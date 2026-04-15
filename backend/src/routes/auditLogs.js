@@ -46,12 +46,19 @@ router.get('/', asyncHandler(async (req, res) => {
 }));
 
 /**
- * POST /api/audit-logs — Manual audit log entry
+ * POST /api/audit-logs — Manual audit log entry (restricted to system actions only)
+ * Admins cannot create arbitrary audit entries — this endpoint is reserved for
+ * system-generated events originating from external integrations.
  */
 router.post('/', asyncHandler(async (req, res) => {
   const { action, targetType, targetId, metadata } = req.body;
 
   if (!action) throw new AppError('Action is required.', 400);
+
+  // Only allow system-prefixed actions — prevent admins from fabricating audit entries
+  if (!action.startsWith('system.')) {
+    throw new AppError('Manual audit logs must use actions prefixed with "system.".', 400);
+  }
 
   const log = await AuditLog.create({
     action,
@@ -59,7 +66,7 @@ router.post('/', asyncHandler(async (req, res) => {
     userRole: req.user.role,
     targetType,
     targetId,
-    metadata,
+    metadata: { ...metadata, manual: true },
     ipAddress: req.ip,
     userAgent: req.get('User-Agent'),
   });

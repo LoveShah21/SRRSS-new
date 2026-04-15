@@ -4,6 +4,7 @@ import LandingPage from './pages/landing/LandingPage';
 import Navbar from './components/Navbar';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import VerifyEmail from './pages/VerifyEmail';
 import Dashboard from './pages/Dashboard';
 import JobBoard from './pages/JobBoard';
 import JobDetail from './pages/JobDetail';
@@ -12,9 +13,11 @@ import AdminConsole from './pages/AdminConsole';
 
 // New pages — Batch 5 implementation
 import Profile from './pages/candidate/Profile';
+import MyInterviews from './pages/candidate/MyInterviews';
 import CandidateList from './pages/recruiter/CandidateList';
 import InterviewScheduler from './pages/recruiter/InterviewScheduler';
 import Reports from './pages/recruiter/Reports';
+import RecruiterAnalytics from './pages/recruiter/RecruiterAnalytics';
 import AuditLogs from './pages/admin/AuditLogs';
 
 function ProtectedRoute({ children, roles }) {
@@ -45,6 +48,7 @@ export default function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/verify-email/:token" element={<VerifyEmail />} />
 
         {/* Protected — All Roles */}
         <Route path="/dashboard" element={
@@ -64,6 +68,9 @@ export default function App() {
         <Route path="/profile" element={
           <ProtectedRoute roles={['candidate']}><Profile /></ProtectedRoute>
         } />
+        <Route path="/my-interviews" element={
+          <ProtectedRoute roles={['candidate']}><MyInterviews /></ProtectedRoute>
+        } />
 
         {/* Recruiter Routes */}
         <Route path="/candidates" element={
@@ -74,6 +81,12 @@ export default function App() {
         } />
         <Route path="/reports" element={
           <ProtectedRoute roles={['recruiter', 'admin']}><Reports /></ProtectedRoute>
+        } />
+        <Route path="/recruiter/analytics" element={
+          <ProtectedRoute roles={['recruiter', 'admin']}><RecruiterAnalytics /></ProtectedRoute>
+        } />
+        <Route path="/recruiter/analytics" element={
+          <ProtectedRoute roles={['recruiter', 'admin']}><RecruiterAnalytics /></ProtectedRoute>
         } />
 
         {/* Admin Routes */}

@@ -384,10 +384,19 @@ Schedule a new interview with conflict detection.
     "scheduledAt": "2024-02-15T14:00:00Z",
     "duration": 60,
     "type": "video",
-    "status": "scheduled"
+    "status": "scheduled",
+    "calendarEventId": "google-calendar-event-id"
   }
 }
 ```
+
+**Calendar Integration:** When `CALENDAR_ENABLED=true` and Google Calendar credentials are configured, the system automatically:
+- Creates a Google Calendar event for the interview
+- Sends calendar invitations to both candidate and recruiter
+- Updates the event when the interview is rescheduled
+- Cancels the event when the interview is cancelled
+
+The `calendarEventId` field stores the Google Calendar event ID for sync tracking.
 
 **Status Codes:**
 - 201: Success

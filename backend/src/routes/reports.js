@@ -6,13 +6,26 @@ const Interview = require('../models/Interview');
 const { authenticate, authorize } = require('../middleware/auth');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 
+/**
+ * Escape special characters to prevent CSV formula injection.
+ */
+function escapeCsvField(value) {
+  const str = String(value);
+  if (/^[=+\-@]/.test(str)) {
+    return `'${str}`;
+  }
+  // Escape double quotes properly for CSV
+  return str.replace(/"/g, '""');
+}
+
 const router = express.Router();
 
 /**
  * GET /api/reports/candidates — Export candidate report data (CSV-ready JSON)
  */
 router.get('/candidates', authenticate, authorize('recruiter', 'admin'), asyncHandler(async (req, res) => {
-  const { jobId, status, format = 'json' } = req.query;
+  const { jobId, status, format = 'json', page = 1, limit = 100 } = req.query;
+  const maxLimit = Math.min(parseInt(limit), 1000); // Cap at 1000 max
 
   const appQuery = {};
   if (status) appQuery.status = status;
@@ -33,10 +46,17 @@ router.get('/candidates', authenticate, authorize('recruiter', 'admin'), asyncHa
     appQuery.jobId = jobId;
   }
 
-  const applications = await Application.find(appQuery)
-    .populate('candidateId', 'profile email')
-    .populate('jobId', 'title location status')
-    .sort({ matchScore: -1 });
+  const skip = (parseInt(page) - 1) * maxLimit;
+  const [applications, total] = await Promise.all([
+    Application.find(appQuery)
+      .populate('candidateId', 'profile email')
+      .populate('jobId', 'title location status')
+      .sort({ matchScore: -1 })
+      .skip(skip)
+      .limit(maxLimit),
+    Application.countDocuments(appQuery),
+  ]);
+  const totalPages = Math.ceil(total / maxLimit);
 
   const reportData = applications.map((app) => ({
     candidateName: `${app.candidateId?.profile?.firstName || ''} ${app.candidateId?.profile?.lastName || ''}`.trim(),
@@ -61,11 +81,11 @@ router.get('/candidates', authenticate, authorize('recruiter', 'admin'), asyncHa
     const csvRows = [headers.join(',')];
     reportData.forEach((row) => {
       csvRows.push([
-        `"${row.candidateName}"`,
-        `"${row.candidateEmail}"`,
-        `"${row.skills}"`,
-        `"${row.jobTitle}"`,
-        `"${row.jobLocation}"`,
+        `"${escapeCsvField(row.candidateName)}"`,
+        `"${escapeCsvField(row.candidateEmail)}"`,
+        `"${escapeCsvField(row.skills)}"`,
+        `"${escapeCsvField(row.jobTitle)}"`,
+        `"${escapeCsvField(row.jobLocation)}"`,
         row.matchScore,
         row.skillsScore,
         row.experienceScore,
@@ -100,6 +120,18 @@ router.get('/candidates', authenticate, authorize('recruiter', 'admin'), asyncHa
  * GET /api/reports/candidates/:id — Single candidate report
  */
 router.get('/candidates/:id', authenticate, authorize('recruiter', 'admin'), asyncHandler(async (req, res) => {
+  if (req.user.role === 'recruiter') {
+    const recruiterJobs = await Job.find({ recruiterId: req.user._id }).select('_id');
+    const jobIds = recruiterJobs.map((j) => j._id);
+    const candidateApps = await Application.findOne({
+      candidateId: req.params.id,
+      jobId: { $in: jobIds },
+    });
+    if (!candidateApps) {
+      throw new AppError('Candidate not found.', 404);
+    }
+  }
+
   const user = await User.findById(req.params.id);
   if (!user || user.role !== 'candidate') {
     throw new AppError('Candidate not found.', 404);

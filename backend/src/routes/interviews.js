@@ -2,9 +2,12 @@ const express = require('express');
 const Interview = require('../models/Interview');
 const Application = require('../models/Application');
 const Job = require('../models/Job');
+const User = require('../models/User');
 const { authenticate, authorize } = require('../middleware/auth');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { createAuditEntry } = require('../middleware/auditLogger');
+const { sendInterviewScheduled } = require('../services/emailService');
+const calendarService = require('../services/calendarService');
 
 const router = express.Router();
 
@@ -94,6 +97,44 @@ router.post('/', authenticate, authorize('recruiter', 'admin'), asyncHandler(asy
     metadata: { applicationId, scheduledAt, candidateId: application.candidateId.toString() },
     req,
   });
+
+  // Create Google Calendar event (non-blocking)
+  let calendarEventId = null;
+  try {
+    const candidate = await User.findById(application.candidateId);
+    const recruiter = req.user;
+    const jobTitle = job.title;
+    calendarEventId = await calendarService.createEvent({
+      summary: `Interview: ${candidate?.profile?.firstName} ${candidate?.profile?.lastName} – ${jobTitle}`,
+      start: scheduledDate,
+      durationMinutes: durationMins,
+      description: notes || `Interview for ${jobTitle}`,
+      location: link || location || 'TBD',
+      candidateEmail: candidate?.email,
+      recruiterEmail: recruiter?.email,
+    });
+    if (calendarEventId) {
+      interview.calendarEventId = calendarEventId;
+      await interview.save({ validateBeforeSave: false });
+    }
+  } catch {
+    // Calendar sync failure should not block interview creation
+  }
+
+  // Send email notification (non-blocking)
+  try {
+    const candidate = await User.findById(application.candidateId);
+    await sendInterviewScheduled({
+      candidateEmail: candidate?.email,
+      candidateName: `${candidate?.profile?.firstName || ''} ${candidate?.profile?.lastName || ''}`.trim(),
+      jobTitle: job.title,
+      scheduledAt,
+      link,
+      notes,
+    });
+  } catch {
+    // Email failure should not block
+  }
 
   res.status(201).json({ message: 'Interview scheduled.', interview });
 }));
@@ -186,6 +227,25 @@ router.patch('/:id', authenticate, authorize('recruiter', 'admin'), asyncHandler
 
   await interview.save();
 
+  // Sync calendar update (non-blocking)
+  if (interview.calendarEventId && (req.body.scheduledAt || req.body.duration || req.body.link || req.body.notes)) {
+    try {
+      const application = await Application.findById(interview.applicationId).populate('jobId');
+      const candidate = await User.findById(interview.candidateId);
+      await calendarService.updateEvent(interview.calendarEventId, {
+        summary: `Interview: ${candidate?.profile?.firstName} ${candidate?.profile?.lastName} – ${application?.jobId?.title || 'Interview'}`,
+        start: interview.scheduledAt,
+        durationMinutes: interview.duration,
+        description: interview.notes || '',
+        location: interview.link || interview.location || 'TBD',
+        candidateEmail: candidate?.email,
+        recruiterEmail: req.user?.email,
+      });
+    } catch {
+      // Calendar sync failure should not block interview update
+    }
+  }
+
   await createAuditEntry({
     action: 'interview.update',
     userId: req.user._id,
@@ -212,6 +272,15 @@ router.delete('/:id', authenticate, authorize('recruiter', 'admin'), asyncHandle
 
   interview.status = 'cancelled';
   await interview.save();
+
+  // Cancel calendar event (non-blocking)
+  if (interview.calendarEventId) {
+    try {
+      await calendarService.cancelEvent(interview.calendarEventId);
+    } catch {
+      // Calendar sync failure should not block cancellation
+    }
+  }
 
   await createAuditEntry({
     action: 'interview.cancel',

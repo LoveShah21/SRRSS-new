@@ -192,6 +192,16 @@ sudo certbot --nginx -d your-domain.com
 | SMTP_USER | SMTP auth username | (required if EMAIL_ENABLED) |
 | SMTP_PASS | SMTP auth password | (required if EMAIL_ENABLED) |
 | EMAIL_FROM | Sender email address | noreply@srrss.com |
+| R2_ACCOUNT_ID | Cloudflare account ID for R2 storage | (required for file uploads) |
+| R2_ACCESS_KEY_ID | R2 API access key | (required for file uploads) |
+| R2_SECRET_ACCESS_KEY | R2 API secret key | (required for file uploads) |
+| R2_BUCKET_NAME | R2 bucket name | srrss |
+| R2_ENDPOINT | R2 endpoint URL (auto-built from account ID if omitted) | https://{account_id}.r2.cloudflarestorage.com |
+| R2_PUBLIC_URL | Public URL for R2 bucket (if public access enabled) | (optional) |
+| CALENDAR_ENABLED | Enable Google Calendar sync for interviews | false |
+| GOOGLE_CLIENT_EMAIL | Google Service Account email | (required for calendar sync) |
+| GOOGLE_PRIVATE_KEY | Google Service Account private key (with \n for newlines) | (required for calendar sync) |
+| CALENDAR_ID | Google Calendar ID to use | primary |
 
 ### AI Service (.env)
 

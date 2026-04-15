@@ -7,6 +7,7 @@ const { authenticate, authorize } = require('../middleware/auth');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { createAuditEntry } = require('../middleware/auditLogger');
 const { sendStatusChange, sendApplicationReceived } = require('../services/emailService');
+const { isSafeExternalUrl } = require('../utils/urlValidator');
 
 const router = express.Router();
 
@@ -31,19 +32,24 @@ router.post('/', authenticate, authorize('candidate'), asyncHandler(async (req, 
 
   try {
     const aiUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
-    const scoreResult = await axios.post(`${aiUrl}/api/score-candidate`, {
-      candidate_profile: req.user.profile,
-      job_description: {
-        title: job.title,
-        description: job.description,
-        requiredSkills: job.requiredSkills,
-        experienceMin: job.experienceMin,
-      },
-    }, { timeout: 5000 });
+    const isSafe = await isSafeExternalUrl(aiUrl);
+    if (!isSafe) {
+      logger.warn('AI service URL blocked — potential SSRF target', { url: aiUrl });
+    } else {
+      const scoreResult = await axios.post(`${aiUrl}/api/score-candidate`, {
+        candidate_profile: req.user.profile,
+        job_description: {
+          title: job.title,
+          description: job.description,
+          requiredSkills: job.requiredSkills,
+          experienceMin: job.experienceMin,
+        },
+      }, { timeout: 5000 });
 
-    if (scoreResult.data) {
-      matchScore = scoreResult.data.matchScore || 0;
-      scoreBreakdown = scoreResult.data.breakdown || scoreBreakdown;
+      if (scoreResult.data) {
+        matchScore = scoreResult.data.matchScore || 0;
+        scoreBreakdown = scoreResult.data.breakdown || scoreBreakdown;
+      }
     }
   } catch {
     // AI unavailable — score remains 0, will be recalculated later

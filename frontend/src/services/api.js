@@ -3,30 +3,58 @@ import axios from 'axios';
 const api = axios.create({
   baseURL: '/api',
   headers: { 'Content-Type': 'application/json' },
+  withCredentials: true, // Send httpOnly cookies with requests
 });
 
-// Request interceptor — attach JWT
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('srrss_token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+// Response interceptor — handle 401 globally with automatic refresh
+let isRefreshing = false;
+let refreshSubscribers = [];
 
-// Response interceptor — handle 401 globally
+const subscribeTokenRefresh = (cb) => {
+  refreshSubscribers.push(cb);
+};
+
+const onTokenRefreshed = () => {
+  refreshSubscribers.forEach((cb) => cb());
+  refreshSubscribers = [];
+};
+
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('srrss_token');
-      localStorage.removeItem('srrss_user');
-      window.location.href = '/login';
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      if (!isRefreshing) {
+        isRefreshing = true;
+
+        try {
+          await axios.post('/api/auth/refresh', {}, {
+            timeout: 5000,
+            withCredentials: true,
+            headers: { 'Content-Type': 'application/json' },
+          });
+          onTokenRefreshed();
+        } catch {
+          window.location.href = '/login';
+          return Promise.reject(error);
+        } finally {
+          isRefreshing = false;
+        }
+      }
+
+      return new Promise((resolve) => {
+        subscribeTokenRefresh(() => {
+          resolve(api(originalRequest));
+        });
+      });
     }
+
     return Promise.reject(error);
   }
 );
-
 // ─── Auth ────────────────────────────────────────────
 export const authAPI = {
   register: (data) => api.post('/auth/register', data),
@@ -34,6 +62,9 @@ export const authAPI = {
   me: () => api.get('/auth/me'),
   logout: () => api.post('/auth/logout'),
   refresh: (data) => api.post('/auth/refresh', data),
+  verifyEmail: () => api.post('/auth/verify-email'),
+  verifyToken: (token) => api.get(`/auth/verify/${token}`),
+  resendVerification: (data) => api.post('/auth/resend-verification', data),
 };
 
 // ─── Jobs ────────────────────────────────────────────
@@ -94,6 +125,11 @@ export const adminAPI = {
   users: (params) => api.get('/admin/users', { params }),
   updateRole: (id, data) => api.patch(`/admin/users/${id}/role`, data),
   deleteUser: (id) => api.delete(`/admin/users/${id}`),
+};
+
+// ─── Recruiter Analytics ─────────────────────────────
+export const recruiterAPI = {
+  analytics: () => api.get('/recruiter/analytics'),
 };
 
 // ─── Audit Logs ──────────────────────────────────────

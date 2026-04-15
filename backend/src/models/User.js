@@ -34,18 +34,38 @@ const userSchema = new mongoose.Schema({
     default: 'candidate',
   },
   profile: {
-    firstName: { type: String, required: true, trim: true },
-    lastName: { type: String, required: true, trim: true },
+    firstName: { type: String, trim: true },
+    lastName: { type: String, trim: true },
     phone: { type: String, trim: true },
     linkedIn: { type: String, trim: true },
     skills: [String],
-    education: [educationSchema],
-    experience: [experienceSchema],
+    education: [{
+      degree: String,
+      institution: String,
+      year: Number,
+    }],
+    experience: [{
+      title: String,
+      company: String,
+      years: Number,
+      description: String,
+    }],
     resumeUrl: String,
-    resumeKey: String, // Cloudflare R2 object key for presigned URL generation
     parsedAt: Date,
   },
+  isEmailVerified: {
+    type: Boolean,
+    default: false,
+  },
+  emailVerificationToken: {
+    type: String,
+  },
+  emailVerificationExpires: {
+    type: Date,
+  },
   refreshToken: { type: String, select: false },
+  resetPasswordToken: { type: String, select: false },
+  resetPasswordExpires: { type: Date, select: false },
 }, {
   timestamps: true,
 });
@@ -70,6 +90,10 @@ userSchema.methods.toJSON = function () {
   const obj = this.toObject();
   delete obj.passwordHash;
   delete obj.refreshToken;
+  delete obj.resetPasswordToken;
+  delete obj.resetPasswordExpires;
+  delete obj.emailVerificationToken;
+  delete obj.emailVerificationExpires;
   delete obj.__v;
   return obj;
 };

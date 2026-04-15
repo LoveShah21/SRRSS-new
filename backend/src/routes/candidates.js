@@ -3,6 +3,7 @@ const User = require('../models/User');
 const Application = require('../models/Application');
 const { authenticate, authorize } = require('../middleware/auth');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
+const { escapeRegex } = require('../utils/security');
 
 const router = express.Router();
 
@@ -34,10 +35,11 @@ router.get('/', authenticate, authorize('recruiter', 'admin'), asyncHandler(asyn
   }
 
   if (search) {
+    const safeSearch = escapeRegex(search);
     userQuery.$or = [
-      { email: { $regex: search, $options: 'i' } },
-      { 'profile.firstName': { $regex: search, $options: 'i' } },
-      { 'profile.lastName': { $regex: search, $options: 'i' } },
+      { email: { $regex: safeSearch, $options: 'i' } },
+      { 'profile.firstName': { $regex: safeSearch, $options: 'i' } },
+      { 'profile.lastName': { $regex: safeSearch, $options: 'i' } },
     ];
   }
 

@@ -63,3 +63,6 @@ playwright-report/
 20*
 .claude/
 .opencode/
+graph*
+.graph*
+raw/

@@ -3,6 +3,8 @@ const axios = require('axios');
 const Job = require('../models/Job');
 const { authenticate, authorize } = require('../middleware/auth');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
+const { isSafeExternalUrl } = require('../utils/urlValidator');
+const logger = require('../utils/logger');
 
 const router = express.Router();
 
@@ -84,11 +86,28 @@ router.post('/', authenticate, authorize('recruiter', 'admin'), asyncHandler(asy
     throw new AppError('Title and description are required.', 400);
   }
 
+  if (description.length > 10000) {
+    throw new AppError('Job description must not exceed 10,000 characters.', 400);
+  }
+
+  if (salaryRange) {
+    if (salaryRange.min < 0) {
+      throw new AppError('Minimum salary cannot be negative.', 400);
+    }
+    if (salaryRange.max < 0) {
+      throw new AppError('Maximum salary cannot be negative.', 400);
+    }
+    if (salaryRange.min > 0 && salaryRange.max > 0 && salaryRange.max < salaryRange.min) {
+      throw new AppError('Maximum salary must be greater than or equal to minimum salary.', 400);
+    }
+  }
+
   const jobData = {
     title,
     description,
     requiredSkills: requiredSkills || [],
-    experienceMin, experienceMax,
+    experienceMin: experienceMin || 0,
+    experienceMax: experienceMax || 99,
     location,
     salaryRange,
     recruiterId: req.user._id,
@@ -97,11 +116,14 @@ router.post('/', authenticate, authorize('recruiter', 'admin'), asyncHandler(asy
   // Call AI bias detection (non-blocking, best effort)
   try {
     const aiUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
-    const biasResult = await axios.post(`${aiUrl}/api/detect-bias`, {
-      job_description: description,
-    }, { timeout: 3000 });
-    if (biasResult.data?.biasFlags?.length > 0) {
-      jobData.biasFlags = biasResult.data.biasFlags;
+    const isSafe = await isSafeExternalUrl(aiUrl);
+    if (isSafe) {
+      const biasResult = await axios.post(`${aiUrl}/api/detect-bias`, {
+        job_description: description,
+      }, { timeout: 3000 });
+      if (biasResult.data?.biasFlags?.length > 0) {
+        jobData.biasFlags = biasResult.data.biasFlags;
+      }
     }
   } catch {
     // AI service unavailable — continue without bias check
