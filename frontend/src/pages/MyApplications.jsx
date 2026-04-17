@@ -2,6 +2,15 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { applicationsAPI } from '../services/api';
 
+function isSafeUrl(url) {
+  try {
+    const u = new URL(url, 'http://example.com');
+    return ['http:', 'https:', 'mailto:', 'tel:'].includes(u.protocol);
+  } catch {
+    return false;
+  }
+}
+
 export default function MyApplications() {
   const navigate = useNavigate();
   const [apps, setApps] = useState([]);
@@ -16,12 +25,10 @@ export default function MyApplications() {
 
   const statusBadge = (status) => {
     const map = {
-      submitted: 'badge-warning',
-      reviewed: 'badge-info',
+      applied: 'badge-warning',
       shortlisted: 'badge-success',
+      interview: 'badge-primary',
       rejected: 'badge-danger',
-      interviewed: 'badge-primary',
-      offered: 'badge-success',
       hired: 'badge-success',
     };
     return map[status] || 'badge-neutral';
@@ -32,6 +39,16 @@ export default function MyApplications() {
     if (score >= 50) return 'mid';
     return 'low';
   };
+
+  const formatStatusLabel = (status) => {
+    if (!status) return 'Unknown';
+    return status.charAt(0).toUpperCase() + status.slice(1);
+  };
+
+  const getStatusHistoryTrail = (statusHistory = []) => statusHistory
+    .slice(-3)
+    .map((entry) => formatStatusLabel(entry.status))
+    .join(' → ');
 
   if (loading) {
     return <div className="loading-center"><div className="spinner spinner-lg" /></div>;
@@ -62,8 +79,8 @@ export default function MyApplications() {
               <thead>
                 <tr>
                   <th>Position</th>
-                  <th>Department</th>
-                  <th>AI Score</th>
+                  <th>Location</th>
+                  <th>Match Score</th>
                   <th>Status</th>
                   <th>Applied</th>
                 </tr>
@@ -79,15 +96,15 @@ export default function MyApplications() {
                         📍 {app.jobId?.location || 'Remote'}
                       </div>
                     </td>
-                    <td>{app.jobId?.department || '—'}</td>
+                    <td>{app.jobId?.location || '—'}</td>
                     <td>
-                      {app.aiScore != null ? (
+                      {app.matchScore != null ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div className={`score-circle ${app.aiScore >= 75 ? 'score-high' : app.aiScore >= 50 ? 'score-mid' : 'score-low'}`}>
-                            {Math.round(app.aiScore)}
+                          <div className={`score-circle ${app.matchScore >= 75 ? 'score-high' : app.matchScore >= 50 ? 'score-mid' : 'score-low'}`}>
+                            {Math.round(app.matchScore)}
                           </div>
                           <div className="progress-bar" style={{ width: 80 }}>
-                            <div className={`progress-fill ${scoreClass(app.aiScore)}`} style={{ width: `${app.aiScore}%` }} />
+                            <div className={`progress-fill ${scoreClass(app.matchScore)}`} style={{ width: `${app.matchScore}%` }} />
                           </div>
                         </div>
                       ) : (
@@ -96,9 +113,37 @@ export default function MyApplications() {
                     </td>
                     <td>
                       <span className={`badge ${statusBadge(app.status)}`}>{app.status}</span>
+                      {app.statusHistory?.length > 0 && (
+                        <div style={{ marginTop: 6, fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                          {getStatusHistoryTrail(app.statusHistory)}
+                        </div>
+                      )}
+                      {app.statusHistory?.length > 0 && (
+                        <div style={{ marginTop: 2, fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                          Updated {new Date(app.statusHistory[app.statusHistory.length - 1].changedAt).toLocaleDateString()}
+                        </div>
+                      )}
                     </td>
                     <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                      {new Date(app.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      {new Date(app.appliedAt || app.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      {app.interview?.scheduledAt && (
+                        <div style={{ marginTop: 6, color: 'var(--color-text-secondary)' }}>
+                          Interview: {new Date(app.interview.scheduledAt).toLocaleString()}
+                        </div>
+                      )}
+                      {app.interview?.link && isSafeUrl(app.interview.link) && (
+                        <div style={{ marginTop: 4 }}>
+                          <a
+                            href={app.interview.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            style={{ color: 'var(--color-primary)', fontWeight: 600 }}
+                          >
+                            Join interview
+                          </a>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

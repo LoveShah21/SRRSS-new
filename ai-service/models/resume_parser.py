@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import io
 import logging
+import re
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -38,26 +39,63 @@ def _extract_pdf_pymupdf(file_bytes: bytes) -> str:
             text_parts.append(page.get_text("text"))
     return "\n".join(text_parts)
 
+def _text_quality_score(text: str) -> float:
+    """
+    Higher score means cleaner extraction.
+
+    Heuristic: reward normal-length alpha tokens and penalize very long joined tokens
+    that commonly appear when spaces are dropped during PDF extraction.
+    """
+    if not text or not text.strip():
+        return float("-inf")
+
+    tokens = re.findall(r"[A-Za-z]+", text)
+    if not tokens:
+        return float("-inf")
+
+    normal = sum(1 for t in tokens if 2 <= len(t) <= 16)
+    long_joined = sum(1 for t in tokens if len(t) >= 20)
+    ultra_joined = sum(1 for t in tokens if len(t) >= 30)
+
+    # Penalize extraction artifacts strongly.
+    return float(normal - (long_joined * 3) - (ultra_joined * 6))
+
 
 def extract_text_from_pdf(file_bytes: bytes) -> str:
     """
     Extract raw text from PDF bytes.
-    Tries pdfplumber first, falls back to PyMuPDF if result is empty.
+    Runs both extractors when possible and picks the cleaner output.
     """
-    try:
-        text = _extract_pdf_pdfplumber(file_bytes)
-        if text.strip():
-            return text
-        logger.warning("pdfplumber returned empty text, trying PyMuPDF fallback.")
-    except Exception as e:
-        logger.warning("pdfplumber failed: %s. Trying PyMuPDF fallback.", e)
+    plumber_text = ""
+    pymupdf_text = ""
 
     try:
-        text = _extract_pdf_pymupdf(file_bytes)
-        return text
+        plumber_text = _extract_pdf_pdfplumber(file_bytes)
     except Exception as e:
-        logger.error("PyMuPDF also failed: %s", e)
+        logger.warning("pdfplumber failed: %s", e)
+
+    try:
+        pymupdf_text = _extract_pdf_pymupdf(file_bytes)
+    except Exception as e:
+        logger.warning("PyMuPDF failed: %s", e)
+
+    if not plumber_text.strip() and not pymupdf_text.strip():
+        logger.error("Both PDF extractors returned empty text.")
         return ""
+
+    if not plumber_text.strip():
+        return pymupdf_text
+    if not pymupdf_text.strip():
+        return plumber_text
+
+    plumber_score = _text_quality_score(plumber_text)
+    pymupdf_score = _text_quality_score(pymupdf_text)
+
+    if pymupdf_score > plumber_score:
+        logger.info("Using PyMuPDF extraction (quality %.2f > %.2f).", pymupdf_score, plumber_score)
+        return pymupdf_text
+
+    return plumber_text
 
 
 # ──────────────────────────────────────────────────────────────────────────────

@@ -1,15 +1,27 @@
 version: '3.8'
 
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: srrss-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - srrss-network
+
   # MongoDB Database
   mongodb:
     image: mongo:7
     container_name: srrss-mongodb
     restart: unless-stopped
     environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: admin123
-      MONGO_INITDB_DATABASE: srrss
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-srrss_admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-change-me-in-env}
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE:-srrss}
     ports:
       - "27017:27017"
     volumes:
@@ -27,13 +39,15 @@ services:
     environment:
       NODE_ENV: production
       PORT: 5000
-      MONGODB_URI: mongodb://admin:admin123@mongodb:27017/srrss?authSource=admin
+      MONGODB_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-srrss_admin}:${MONGO_INITDB_ROOT_PASSWORD:-change-me-in-env}@mongodb:27017/${MONGO_INITDB_DATABASE:-srrss}?authSource=admin
       DB_NAME: srrss
-      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-me}
+      JWT_SECRET: ${JWT_SECRET:-irfsjkdnfjksdierusfkieruhfasniuersfnv}
       JWT_EXPIRES_IN: 15m
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-your-refresh-secret-change-me}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-irugsfiuerkfjsdiuerkfdsiuejfsduegfjd}
       JWT_REFRESH_EXPIRES_IN: 7d
       AI_SERVICE_URL: http://ai-service:8000
+      AI_SERVICE_API_KEY: ${AI_SERVICE_API_KEY:-ruoiafjslkdioerufsdjkoiruisfjkoiudsfjkcxoiuedsfhjewuoiadsfkouiasfjkdwrouiwesfjkdoiuewrasfkcxiuoerfdcxoruiafdsjk}
+      AI_TRUSTED_INTERNAL_HOSTS: ${AI_TRUSTED_INTERNAL_HOSTS:-localhost,127.0.0.1,::1,ai-service}
       UPLOAD_DIR: /app/uploads
       CLIENT_URL: ${CLIENT_URL:-http://localhost:5173}
     ports:
@@ -56,8 +70,15 @@ services:
     environment:
       PORT: 8000
       PYTHONUNBUFFERED: 1
+      AI_SERVICE_API_KEY: ${AI_SERVICE_API_KEY:-ruoiafjslkdioerufsdjkoiruisfjkoiudsfjkcxoiuedsfhjewuoiadsfkouiasfjkdwrouiwesfjkdoiuewrasfkcxiuoerfdcxoruiafdsjk}
+      AI_REQUIRE_API_KEY: ${AI_REQUIRE_API_KEY:-true}
+      AI_ALLOWED_ORIGINS: ${AI_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:4173,http://localhost:5000}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      SESSION_TTL_SECONDS: ${SESSION_TTL_SECONDS:-86400}
     ports:
       - "8000:8000"
+    depends_on:
+      - redis
     volumes:
       - ai_uploads:/app/uploads
     networks:
@@ -71,7 +92,7 @@ services:
     container_name: srrss-frontend
     restart: unless-stopped
     environment:
-      VITE_API_URL: http://localhost:5000/api
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:5000/api}
     ports:
       - "5173:5173"
     depends_on:
@@ -89,4 +110,6 @@ volumes:
   backend_uploads:
     driver: local
   ai_uploads:
+    driver: local
+  redis_data:
     driver: local

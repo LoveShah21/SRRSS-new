@@ -34,6 +34,9 @@ describe('Applications Routes', () => {
       expect(res.body.application.status).toBe('applied');
       expect(res.body.application.jobId).toBe(jobId);
       expect(res.body.application.candidateId).toBe(candidateId);
+      expect(res.body.application.aiExplanation).toBeDefined();
+      expect(Array.isArray(res.body.application.aiExplanation.matchedSkills)).toBe(true);
+      expect(Array.isArray(res.body.application.aiExplanation.missingSkills)).toBe(true);
     });
 
     it('should reject duplicate application', async () => {
@@ -229,6 +232,42 @@ describe('Applications Routes', () => {
         .send({ notes: 'No date' });
 
       expect(res.status).toBe(400);
+    });
+  });
+
+  // ── BLIND-SCREENING REVEAL ────────────────────────────
+  describe('POST /api/applications/:id/reveal', () => {
+    let applicationId;
+
+    beforeEach(async () => {
+      const applyRes = await request
+        .post('/api/applications')
+        .set('Authorization', `Bearer ${candidateToken}`)
+        .send({ jobId });
+      applicationId = applyRes.body.application._id;
+    });
+
+    it('should reject reveal before shortlisting', async () => {
+      const res = await request
+        .post(`/api/applications/${applicationId}/reveal`)
+        .set('Authorization', `Bearer ${recruiterToken}`);
+
+      expect(res.status).toBe(400);
+    });
+
+    it('should reveal identity for shortlisted candidate', async () => {
+      await request
+        .patch(`/api/applications/${applicationId}/status`)
+        .set('Authorization', `Bearer ${recruiterToken}`)
+        .send({ status: 'shortlisted' });
+
+      const res = await request
+        .post(`/api/applications/${applicationId}/reveal`)
+        .set('Authorization', `Bearer ${recruiterToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.application.isIdentityRevealed).toBe(true);
+      expect(res.body.application.revealedBy).toBeDefined();
     });
   });
 });

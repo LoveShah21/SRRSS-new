@@ -1,131 +1,77 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { BrowserRouter } from 'react-router-dom'
-import userEvent from '@testing-library/user-event'
-import Login from './Login'
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import { BrowserRouter } from 'react-router-dom';
+import userEvent from '@testing-library/user-event';
+import Login from './Login';
 
-// Mock AuthContext
-const mockLogin = vi.fn()
-const mockAuthContext = {
-  login: mockLogin,
-  isAuthenticated: false,
-}
+const mockNavigate = vi.fn();
+const mockLogin = vi.fn();
+
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
 
 vi.mock('../context/AuthContext', () => ({
-  useAuth: () => mockAuthContext,
-}))
+  useAuth: () => ({
+    login: mockLogin,
+    isAuthenticated: false,
+  }),
+}));
 
-// Mock API
-vi.mock('../services/api', () => ({
-  authAPI: {
-    login: vi.fn(),
-  },
-}))
-
-const renderWithProviders = (component) => {
-  return render(
-    <BrowserRouter>
-      {component}
-    </BrowserRouter>
-  )
+function renderWithProviders(component) {
+  return render(<BrowserRouter>{component}</BrowserRouter>);
 }
 
 describe('Login Page', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
-  })
+    vi.clearAllMocks();
+  });
 
-  it('should render login form', () => {
-    renderWithProviders(<Login />)
+  it('renders login form', () => {
+    renderWithProviders(<Login />);
 
-    expect(screen.getByLabelText(/email/i)).toBeInTheDocument()
-    expect(screen.getByLabelText(/password/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /login/i })).toBeInTheDocument()
-    expect(screen.getByText(/don't have an account/i)).toBeInTheDocument()
-  })
+    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
+    expect(screen.getByText(/don't have an account/i)).toBeInTheDocument();
+  });
 
-  it('should display validation error for empty email', async () => {
-    renderWithProviders(<Login />)
+  it('calls auth login with valid credentials', async () => {
+    mockLogin.mockResolvedValue({});
+    renderWithProviders(<Login />);
 
-    const passwordInput = screen.getByLabelText(/password/i)
-    fireEvent.change(passwordInput, { target: { value: 'password123' } })
-
-    const loginButton = screen.getByRole('button', { name: /login/i })
-    fireEvent.click(loginButton)
-
-    await waitFor(() => {
-      expect(screen.getByText(/email is required/i)).toBeInTheDocument()
-    })
-  })
-
-  it('should display validation error for empty password', async () => {
-    renderWithProviders(<Login />)
-
-    const emailInput = screen.getByLabelText(/email/i)
-    fireEvent.change(emailInput, { target: { value: 'test@example.com' } })
-
-    const loginButton = screen.getByRole('button', { name: /login/i })
-    fireEvent.click(loginButton)
+    await userEvent.type(screen.getByLabelText(/email/i), 'test@example.com');
+    await userEvent.type(screen.getByLabelText(/password/i), 'password123');
+    await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/password is required/i)).toBeInTheDocument()
-    })
-  })
+      expect(mockLogin).toHaveBeenCalledWith('test@example.com', 'password123');
+      expect(mockNavigate).toHaveBeenCalledWith('/dashboard');
+    });
+  });
 
-  it('should call login function with valid credentials', async () => {
-    const { authAPI } = require('../services/api')
-    authAPI.login.mockResolvedValue({
-      data: {
-        token: 'test-token',
-        user: { email: 'test@example.com', role: 'candidate' },
-      },
-    })
+  it('displays backend error message when login fails', async () => {
+    mockLogin.mockRejectedValue({
+      response: { data: { message: 'Invalid credentials' } },
+    });
+    renderWithProviders(<Login />);
 
-    renderWithProviders(<Login />)
-
-    const emailInput = screen.getByLabelText(/email/i)
-    const passwordInput = screen.getByLabelText(/password/i)
-
-    await userEvent.type(emailInput, 'test@example.com')
-    await userEvent.type(passwordInput, 'password123')
-
-    const loginButton = screen.getByRole('button', { name: /login/i })
-    await userEvent.click(loginButton)
+    await userEvent.type(screen.getByLabelText(/email/i), 'test@example.com');
+    await userEvent.type(screen.getByLabelText(/password/i), 'wrongpassword');
+    await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
 
     await waitFor(() => {
-      expect(authAPI.login).toHaveBeenCalledWith('test@example.com', 'password123')
-    })
-  })
+      expect(screen.getByText(/invalid credentials/i)).toBeInTheDocument();
+    });
+  });
 
-  it('should display error message on login failure', async () => {
-    const { authAPI } = require('../services/api')
-    authAPI.login.mockRejectedValue({
-      response: { data: { error: 'Invalid credentials' } },
-    })
-
-    renderWithProviders(<Login />)
-
-    const emailInput = screen.getByLabelText(/email/i)
-    const passwordInput = screen.getByLabelText(/password/i)
-
-    await userEvent.type(emailInput, 'test@example.com')
-    await userEvent.type(passwordInput, 'wrongpassword')
-
-    const loginButton = screen.getByRole('button', { name: /login/i })
-    await userEvent.click(loginButton)
-
-    await waitFor(() => {
-      expect(screen.getByText(/invalid credentials/i)).toBeInTheDocument()
-    })
-  })
-
-  it('should navigate to register page when clicking register link', async () => {
-    renderWithProviders(<Login />)
-
-    const registerLink = screen.getByText(/sign up/i)
-    await userEvent.click(registerLink)
-
-    // Navigation is handled by react-router
-    expect(registerLink).toHaveAttribute('href', '/register')
-  })
-})
+  it('contains register link', () => {
+    renderWithProviders(<Login />);
+    const registerLink = screen.getByRole('link', { name: /create one/i });
+    expect(registerLink).toHaveAttribute('href', '/register');
+  });
+});

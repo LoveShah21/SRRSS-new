@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { candidatesAPI, applicationsAPI, jobsAPI } from '../../services/api';
+import { candidatesAPI, applicationsAPI, jobsAPI, recruiterAPI } from '../../services/api';
 import { useNavigate } from 'react-router-dom';
+import CandidateCard from '../../components/Recruiter/CandidateCard';
 
 export default function CandidateList() {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [jobs, setJobs] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, total: 0, pages: 0 });
+  const [blindMode, setBlindMode] = useState(false);
+  const [settingsLoading, setSettingsLoading] = useState(true);
+  const [savingBlindMode, setSavingBlindMode] = useState(false);
 
   // Filters
   const [filters, setFilters] = useState({
@@ -19,6 +21,20 @@ export default function CandidateList() {
     status: '',
     search: '',
   });
+
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        const res = await recruiterAPI.getSettings();
+        setBlindMode(!!res.data?.settings?.blindScreeningEnabled);
+      } catch {
+        // ignore and keep local default
+      } finally {
+        setSettingsLoading(false);
+      }
+    }
+    loadSettings();
+  }, []);
 
   useEffect(() => {
     async function loadJobs() {
@@ -32,7 +48,7 @@ export default function CandidateList() {
 
   useEffect(() => {
     loadCandidates();
-  }, [filters.jobId, filters.status, pagination.page]);
+  }, [filters.jobId, filters.status, pagination.page, blindMode, settingsLoading]);
 
   async function loadCandidates() {
     setLoading(true);
@@ -43,9 +59,13 @@ export default function CandidateList() {
       if (filters.score_min) params.score_min = filters.score_min;
       if (filters.status) params.status = filters.status;
       if (filters.search) params.search = filters.search;
+      params.blind = blindMode;
 
       const res = await candidatesAPI.list(params);
       setCandidates(res.data.candidates || []);
+      if (res.data?.blindMode !== undefined) {
+        setBlindMode(!!res.data.blindMode);
+      }
       setPagination(prev => ({ ...prev, ...res.data.pagination }));
     } catch (err) {
       console.error('Failed to load candidates:', err);
@@ -59,6 +79,43 @@ export default function CandidateList() {
     setPagination(prev => ({ ...prev, page: 1 }));
     loadCandidates();
   };
+
+  async function handleShortlist(applicationId) {
+    try {
+      await applicationsAPI.updateStatus(applicationId, { status: 'shortlisted' });
+      loadCandidates();
+    } catch (err) {
+      console.error('Failed to shortlist candidate:', err);
+    }
+  }
+
+  function handleSchedule(applicationId) {
+    navigate(`/interviews?applicationId=${applicationId}`);
+  }
+
+  async function handleReveal(applicationId) {
+    try {
+      await applicationsAPI.reveal(applicationId);
+      loadCandidates();
+    } catch (err) {
+      console.error('Failed to reveal candidate identity:', err);
+    }
+  }
+
+  async function handleBlindModeToggle() {
+    const nextValue = !blindMode;
+    setBlindMode(nextValue);
+    setSavingBlindMode(true);
+    try {
+      await recruiterAPI.updateSettings({ blindScreeningEnabled: nextValue });
+      setPagination((prev) => ({ ...prev, page: 1 }));
+    } catch (err) {
+      console.error('Failed to save blind screening preference:', err);
+      setBlindMode(!nextValue);
+    } finally {
+      setSavingBlindMode(false);
+    }
+  }
 
   return (
     <div className="page">
@@ -133,6 +190,15 @@ export default function CandidateList() {
             <button type="submit" className="btn btn-primary btn-sm" style={{ height: 40 }}>
               🔍 Search
             </button>
+            <button
+              type="button"
+              className={`btn btn-sm ${blindMode ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ height: 40 }}
+              disabled={settingsLoading || savingBlindMode}
+              onClick={handleBlindModeToggle}
+            >
+              {savingBlindMode ? 'Saving…' : blindMode ? 'Blind Mode: On' : 'Blind Mode: Off'}
+            </button>
           </form>
         </div>
 
@@ -151,56 +217,16 @@ export default function CandidateList() {
           <>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {candidates.map((candidate) => (
-                <div key={candidate._id} className="card slide-up" style={{ padding: 20 }}>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>
-                        {candidate.profile?.firstName} {candidate.profile?.lastName}
-                      </h3>
-                      <p style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
-                        {candidate.email}
-                      </p>
-                    </div>
-                    {candidate.application && (
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{
-                          fontSize: 24, fontWeight: 800,
-                          color: candidate.application.matchScore >= 70 ? 'var(--color-success)' :
-                                 candidate.application.matchScore >= 40 ? 'var(--color-warning)' : 'var(--color-error)',
-                        }}>
-                          {candidate.application.matchScore}%
-                        </div>
-                        <span className={`badge ${
-                          candidate.application.status === 'hired' ? 'badge-success' :
-                          candidate.application.status === 'rejected' ? 'badge-error' :
-                          candidate.application.status === 'interview' ? 'badge-info' :
-                          'badge-neutral'
-                        }`}>
-                          {candidate.application.status}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {candidate.profile?.skills?.length > 0 && (
-                    <div className="tag-list" style={{ marginTop: 12 }}>
-                      {candidate.profile.skills.slice(0, 8).map((skill) => (
-                        <span key={skill} className="tag">{skill}</span>
-                      ))}
-                      {candidate.profile.skills.length > 8 && (
-                        <span className="tag">+{candidate.profile.skills.length - 8}</span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Application summaries */}
-                  {candidate.applications?.length > 0 && !candidate.application && (
-                    <div style={{ marginTop: 12, fontSize: 13, color: 'var(--color-text-secondary)' }}>
-                      {candidate.applications.length} application(s) •
-                      Latest: {candidate.applications[0]?.jobTitle} ({candidate.applications[0]?.status})
-                    </div>
-                  )}
-                </div>
+                <CandidateCard
+                  key={candidate._id}
+                  candidate={candidate}
+                  application={candidate.application}
+                  job={candidate.job}
+                  blindMode={blindMode}
+                  onShortlist={handleShortlist}
+                  onSchedule={handleSchedule}
+                  onReveal={handleReveal}
+                />
               ))}
             </div>
 

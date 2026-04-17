@@ -11,12 +11,13 @@ export default function JobBoard() {
   const [search, setSearch] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({
-    title: '', department: '', description: '', location: '',
-    employmentType: 'full-time', requiredSkills: '',
+    title: '', description: '', location: '', requiredSkills: '',
+    experienceMin: '0', experienceMax: '99',
     salaryMin: '', salaryMax: '',
   });
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
+  const [biasFeedback, setBiasFeedback] = useState(null);
 
   const loadJobs = async () => {
     try {
@@ -44,21 +45,39 @@ export default function JobBoard() {
     try {
       const payload = {
         title: form.title,
-        department: form.department,
         description: form.description,
         location: form.location,
-        employmentType: form.employmentType,
         requiredSkills: form.requiredSkills.split(',').map(s => s.trim()).filter(Boolean),
+        experienceMin: Number(form.experienceMin || 0),
+        experienceMax: Number(form.experienceMax || 99),
         salaryRange: form.salaryMin && form.salaryMax
           ? { min: Number(form.salaryMin), max: Number(form.salaryMax) }
           : undefined,
       };
-      await jobsAPI.create(payload);
+      const createRes = await jobsAPI.create(payload);
+      const createdJob = createRes.data?.job;
+      if (createdJob?.biasFlags?.length > 0) {
+        setBiasFeedback({
+          title: createdJob.title,
+          flags: createdJob.biasFlags,
+        });
+      } else {
+        setBiasFeedback(null);
+      }
       setShowCreate(false);
-      setForm({ title: '', department: '', description: '', location: '', employmentType: 'full-time', requiredSkills: '', salaryMin: '', salaryMax: '' });
+      setForm({
+        title: '',
+        description: '',
+        location: '',
+        requiredSkills: '',
+        experienceMin: '0',
+        experienceMax: '99',
+        salaryMin: '',
+        salaryMax: '',
+      });
       loadJobs();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create job');
+      setError(err.response?.data?.error || err.response?.data?.message || 'Failed to create job');
     } finally {
       setCreating(false);
     }
@@ -87,12 +106,28 @@ export default function JobBoard() {
         <form onSubmit={handleSearch} className="flex gap-md" style={{ marginBottom: 24 }}>
           <input
             className="form-input flex-1"
-            placeholder="Search jobs by title, department, or skills…"
+            placeholder="Search jobs by title, description, or skills…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
           <button type="submit" className="btn btn-secondary">Search</button>
         </form>
+
+        {biasFeedback && (
+          <div className="card slide-up" style={{ marginBottom: 24 }}>
+            <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
+              <h3 style={{ fontSize: 16, fontWeight: 700 }}>⚖️ AI Bias Suggestions for "{biasFeedback.title}"</h3>
+              <button className="btn btn-ghost btn-icon" onClick={() => setBiasFeedback(null)}>✕</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {biasFeedback.flags.map((flag, idx) => (
+                <div key={`${flag.term}-${idx}`} className="alert alert-warning" style={{ margin: 0 }}>
+                  <strong>{flag.term}</strong>{flag.suggestion ? ` — ${flag.suggestion}` : ''}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Job List */}
         {loading ? (
@@ -118,9 +153,10 @@ export default function JobBoard() {
                   <div>
                     <div className="job-card-title">{job.title}</div>
                     <div className="job-card-meta">
-                      {job.department && <span>🏢 {job.department}</span>}
                       <span>📍 {job.location || 'Remote'}</span>
-                      <span>💼 {job.employmentType || 'Full-time'}</span>
+                      {(job.experienceMin !== undefined || job.experienceMax !== undefined) && (
+                        <span>🧠 {job.experienceMin ?? 0}–{job.experienceMax ?? 99} yrs</span>
+                      )}
                       {job.salaryRange && (
                         <span>💰 ${job.salaryRange.min?.toLocaleString()} – ${job.salaryRange.max?.toLocaleString()}</span>
                       )}
@@ -164,22 +200,9 @@ export default function JobBoard() {
                 </div>
                 <div className="flex gap-md" style={{ marginTop: 16 }}>
                   <div className="form-group flex-1">
-                    <label className="form-label">Department</label>
-                    <input className="form-input" value={form.department} onChange={set('department')} placeholder="Engineering" />
-                  </div>
-                  <div className="form-group flex-1">
                     <label className="form-label">Location</label>
                     <input className="form-input" value={form.location} onChange={set('location')} placeholder="Remote / New York" />
                   </div>
-                </div>
-                <div className="form-group" style={{ marginTop: 16 }}>
-                  <label className="form-label">Employment Type</label>
-                  <select className="form-select" value={form.employmentType} onChange={set('employmentType')}>
-                    <option value="full-time">Full-time</option>
-                    <option value="part-time">Part-time</option>
-                    <option value="contract">Contract</option>
-                    <option value="internship">Internship</option>
-                  </select>
                 </div>
                 <div className="form-group" style={{ marginTop: 16 }}>
                   <label className="form-label">Description</label>
@@ -188,6 +211,16 @@ export default function JobBoard() {
                 <div className="form-group" style={{ marginTop: 16 }}>
                   <label className="form-label">Required Skills (comma-separated)</label>
                   <input className="form-input" value={form.requiredSkills} onChange={set('requiredSkills')} placeholder="React, TypeScript, Node.js" />
+                </div>
+                <div className="flex gap-md" style={{ marginTop: 16 }}>
+                  <div className="form-group flex-1">
+                    <label className="form-label">Experience Min (years)</label>
+                    <input className="form-input" type="number" min="0" value={form.experienceMin} onChange={set('experienceMin')} />
+                  </div>
+                  <div className="form-group flex-1">
+                    <label className="form-label">Experience Max (years)</label>
+                    <input className="form-input" type="number" min="0" value={form.experienceMax} onChange={set('experienceMax')} />
+                  </div>
                 </div>
                 <div className="flex gap-md" style={{ marginTop: 16 }}>
                   <div className="form-group flex-1">

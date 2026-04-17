@@ -1,135 +1,108 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
-import { BrowserRouter } from 'react-router-dom'
-import Dashboard from './Dashboard'
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import { BrowserRouter } from 'react-router-dom';
+import Dashboard from './Dashboard';
+import * as api from '../services/api';
 
-// Mock AuthContext
 const mockAuthContext = {
   user: {
     email: 'test@example.com',
     role: 'candidate',
     profile: { firstName: 'Test', lastName: 'User' },
   },
-  isAuthenticated: true,
-}
+  isCandidate: true,
+  isRecruiter: false,
+  isAdmin: false,
+};
 
 vi.mock('../context/AuthContext', () => ({
   useAuth: () => mockAuthContext,
-}))
+}));
 
-// Mock API
-vi.mock('../services/api', () => ({
-  jobsAPI: {
-    getAll: vi.fn(),
-  },
-  applicationsAPI: {
-    getMyApplications: vi.fn(),
-  },
-}))
-
-const renderWithProviders = (component) => {
-  return render(
-    <BrowserRouter>
-      {component}
-    </BrowserRouter>
-  )
+function renderWithProviders(component) {
+  return render(<BrowserRouter>{component}</BrowserRouter>);
 }
 
 describe('Dashboard Page', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
-  })
+    vi.clearAllMocks();
+    vi.restoreAllMocks();
+    mockAuthContext.user.role = 'candidate';
+    mockAuthContext.user.profile.firstName = 'Test';
+    mockAuthContext.isCandidate = true;
+    mockAuthContext.isRecruiter = false;
+    mockAuthContext.isAdmin = false;
+  });
 
-  it('should render dashboard welcome message', () => {
-    renderWithProviders(<Dashboard />)
+  it('renders welcome message for candidate', async () => {
+    vi.spyOn(api.jobsAPI, 'list').mockResolvedValue({ data: { jobs: [] } });
+    vi.spyOn(api.applicationsAPI, 'myApplications').mockResolvedValue({ data: { applications: [] } });
 
-    expect(screen.getByText(/welcome/i)).toBeInTheDocument()
-    expect(screen.getByText(/test user/i)).toBeInTheDocument()
-  })
-
-  it('should display candidate dashboard options', async () => {
-    const { jobsAPI } = require('../services/api')
-    jobsAPI.getAll.mockResolvedValue({ data: { jobs: [], pagination: { total: 0 } } })
-
-    renderWithProviders(<Dashboard />)
-
-    await waitFor(() => {
-      expect(screen.getByText(/browse jobs/i)).toBeInTheDocument()
-      expect(screen.getByText(/my applications/i)).toBeInTheDocument()
-    })
-  })
-
-  it('should display recruiter dashboard options', async () => {
-    mockAuthContext.user.role = 'recruiter'
-    mockAuthContext.user.profile.firstName = 'Recruiter'
-
-    const { jobsAPI } = require('../services/api')
-    jobsAPI.getAll.mockResolvedValue({ data: { jobs: [], pagination: { total: 0 } } })
-
-    renderWithProviders(<Dashboard />)
+    renderWithProviders(<Dashboard />);
 
     await waitFor(() => {
-      expect(screen.getByText(/post job/i)).toBeInTheDocument()
-      expect(screen.getByText(/my jobs/i)).toBeInTheDocument()
-    })
+      expect(screen.getByText(/welcome back/i)).toBeInTheDocument();
+      expect(screen.getByText('Test')).toBeInTheDocument();
+      expect(screen.getByText(/latest openings/i)).toBeInTheDocument();
+    });
+  });
 
-    // Reset mock
-    mockAuthContext.user.role = 'candidate'
-    mockAuthContext.user.profile.firstName = 'Test'
-  })
+  it('shows recruiter stats', async () => {
+    mockAuthContext.user.role = 'recruiter';
+    mockAuthContext.user.profile.firstName = 'Recruiter';
+    mockAuthContext.isCandidate = false;
+    mockAuthContext.isRecruiter = true;
 
-  it('should display admin dashboard options', async () => {
-    mockAuthContext.user.role = 'admin'
-    mockAuthContext.user.profile.firstName = 'Admin'
-
-    const { jobsAPI } = require('../services/api')
-    jobsAPI.getAll.mockResolvedValue({ data: { jobs: [], pagination: { total: 0 } } })
-
-    renderWithProviders(<Dashboard />)
-
-    await waitFor(() => {
-      expect(screen.getByText(/admin console/i)).toBeInTheDocument()
-      expect(screen.getByText(/manage users/i)).toBeInTheDocument()
-    })
-
-    // Reset mock
-    mockAuthContext.user.role = 'candidate'
-    mockAuthContext.user.profile.firstName = 'Test'
-  })
-
-  it('should display loading state initially', () => {
-    const { jobsAPI } = require('../services/api')
-    jobsAPI.getAll.mockImplementation(() => new Promise(() => {}))
-
-    renderWithProviders(<Dashboard />)
-
-    expect(screen.getByText(/loading/i)).toBeInTheDocument()
-  })
-
-  it('should display job statistics', async () => {
-    const { jobsAPI } = require('../services/api')
-    jobsAPI.getAll.mockResolvedValue({
+    vi.spyOn(api.jobsAPI, 'list').mockResolvedValue({ data: { jobs: [] } });
+    vi.spyOn(api.recruiterAPI, 'analytics').mockResolvedValue({
       data: {
-        jobs: [{ title: 'Job 1' }, { title: 'Job 2' }],
-        pagination: { total: 2 },
+        analytics: {
+          jobs: { total: 4, open: 3 },
+          applications: { total: 25 },
+          interviews: { scheduled: 5 },
+        },
       },
-    })
+    });
 
-    renderWithProviders(<Dashboard />)
-
-    await waitFor(() => {
-      expect(screen.getByText(/2 open positions/i)).toBeInTheDocument()
-    })
-  })
-
-  it('should handle API error gracefully', async () => {
-    const { jobsAPI } = require('../services/api')
-    jobsAPI.getAll.mockRejectedValue({ message: 'Network error' })
-
-    renderWithProviders(<Dashboard />)
+    renderWithProviders(<Dashboard />);
 
     await waitFor(() => {
-      expect(screen.getByText(/error loading jobs/i)).toBeInTheDocument()
-    })
-  })
-})
+      expect(screen.getByText(/total jobs/i)).toBeInTheDocument();
+      expect(screen.getByText(/active jobs/i)).toBeInTheDocument();
+      expect(screen.getByText(/interviews/i)).toBeInTheDocument();
+    });
+  });
+
+  it('shows admin stats', async () => {
+    mockAuthContext.user.role = 'admin';
+    mockAuthContext.user.profile.firstName = 'Admin';
+    mockAuthContext.isCandidate = false;
+    mockAuthContext.isAdmin = true;
+
+    vi.spyOn(api.jobsAPI, 'list').mockResolvedValue({ data: { jobs: [] } });
+    vi.spyOn(api.adminAPI, 'analytics').mockResolvedValue({
+      data: {
+        analytics: {
+          users: { total: 100 },
+          jobs: { total: 50, open: 12 },
+          applications: { total: 200, lastWeek: 40 },
+        },
+      },
+    });
+
+    renderWithProviders(<Dashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/total users/i)).toBeInTheDocument();
+      expect(screen.getByText(/open jobs/i)).toBeInTheDocument();
+    });
+  });
+
+  it('shows loading spinner while API is pending', () => {
+    vi.spyOn(api.jobsAPI, 'list').mockImplementation(() => new Promise(() => {}));
+    vi.spyOn(api.applicationsAPI, 'myApplications').mockResolvedValue({ data: { applications: [] } });
+
+    const { container } = renderWithProviders(<Dashboard />);
+    expect(container.querySelector('.spinner-lg')).toBeInTheDocument();
+  });
+});

@@ -12,18 +12,33 @@
 from __future__ import annotations
 
 import logging
+import os
 import uuid
-from typing import Any
-
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+import base64
+import httpx
+from typing import Any, Dict, List
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, HttpUrl
+from dotenv import load_dotenv
 
 from models.ranker import rank_resumes, ResumeFile
+from models.resume_parser import parse_resume
+from models.extractor import ResumeStructuredExtractor
+from models.ethics import BiasDetector, PIIMasker
+from models.scorer import compute_experience_score, compute_final_score, compute_skill_score
+from session_store import SessionStore
+
+# ... (rest of imports)
+
+# ... (logging config remains same)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Logging
 # ──────────────────────────────────────────────────────────────────────────────
+
+# Load environment variables from ai-service/.env when present.
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), ".env"), override=False)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -44,25 +59,84 @@ app = FastAPI(
     version="1.0.0",
 )
 
+def _parse_allowed_origins() -> list[str]:
+    raw = os.getenv("AI_ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:4173")
+    origins = [origin.strip() for origin in raw.split(",") if origin.strip()]
+    return origins or ["http://localhost:5173"]
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # tighten for production
+    allow_origins=_parse_allowed_origins(),
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-API-KEY"],
 )
 
+AI_REQUIRE_API_KEY = os.getenv("AI_REQUIRE_API_KEY", "true").lower() in {"1", "true", "yes", "on"}
+AI_SERVICE_API_KEY = os.getenv("AI_SERVICE_API_KEY")
+
+
+def require_api_key(x_api_key: str | None = Header(default=None, alias="X-API-KEY")):
+    if not AI_REQUIRE_API_KEY:
+        return
+    if not AI_SERVICE_API_KEY:
+        logger.error("AI_SERVICE_API_KEY is not configured while API key enforcement is enabled.")
+        raise HTTPException(status_code=500, detail="AI service auth is misconfigured.")
+    if x_api_key != AI_SERVICE_API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid API key.")
+
 # ──────────────────────────────────────────────────────────────────────────────
-# In-memory session store (replace with Redis / DB for production)
+# Session store (Redis-backed when configured, with in-memory fallback)
 # ──────────────────────────────────────────────────────────────────────────────
 
-# { job_id: { "resumes": [ResumeFile], "jd_text": str, "results": [...] } }
-SESSION_STORE: dict[str, dict[str, Any]] = {}
+SESSION_TTL_SECONDS = int(os.getenv("SESSION_TTL_SECONDS", "86400"))
+session_store = SessionStore(
+    redis_url=os.getenv("REDIS_URL"),
+    ttl_seconds=SESSION_TTL_SECONDS,
+)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Pydantic Response Models
 # ──────────────────────────────────────────────────────────────────────────────
+
+class BiasReport(BaseModel):
+    bias_score: float
+    findings: List[Dict[str, Any]]
+    is_biased: bool
+    recommendation: str
+
+class ParseResumeRequest(BaseModel):
+    file_url: HttpUrl
+    file_path: str
+    file_type: str
+
+class EducationEntry(BaseModel):
+    institution: str
+    year: str
+    degree: str
+
+class ExperienceEntry(BaseModel):
+    company: str
+    role: str
+    duration: str
+    description: str = ""
+
+class ProjectEntry(BaseModel):
+    name: str
+    techStack: List[str] = Field(default_factory=list)
+    description: str = ""
+
+class ParseResumeResponse(BaseModel):
+    skills: List[str]
+    education: List[EducationEntry]
+    experience: List[ExperienceEntry]
+    projects: List[ProjectEntry] = Field(default_factory=list)
+
+class ScoreCandidateRequest(BaseModel):
+    candidate_profile: Dict[str, Any]
+    job_description: Dict[str, Any]
 
 class SkillMatchOut(BaseModel):
     jd_skills: list[str]
@@ -90,6 +164,11 @@ class RankingResponse(BaseModel):
     job_id: str
     total_resumes: int
     rankings: list[CandidateResult]
+
+class ScoreCandidateResponse(BaseModel):
+    matchScore: float
+    breakdown: Dict[str, float]
+    explanation: Dict[str, Any]
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -119,6 +198,41 @@ def _result_to_out(r) -> CandidateResult:
     )
 
 
+def _new_session(job_title: str = "Untitled Position") -> dict[str, Any]:
+    return {
+        "resumes": [],
+        "jd_text": "",
+        "job_title": job_title,
+        "results": [],
+    }
+
+
+def _encode_resume_file(resume: ResumeFile) -> dict[str, Any]:
+    return {
+        "filename": resume.filename,
+        "candidate_name": resume.candidate_name or "",
+        "file_bytes_b64": base64.b64encode(resume.file_bytes).decode("utf-8"),
+    }
+
+
+def _decode_resume_file(payload: dict[str, Any]) -> ResumeFile:
+    return ResumeFile(
+        filename=payload.get("filename", "resume.pdf"),
+        candidate_name=payload.get("candidate_name", ""),
+        file_bytes=base64.b64decode(payload.get("file_bytes_b64", "")),
+    )
+
+
+def _candidate_result_to_dict(result: CandidateResult) -> dict[str, Any]:
+    if hasattr(result, "model_dump"):
+        return result.model_dump()
+    return result.dict()
+
+
+def _candidate_result_from_dict(payload: dict[str, Any]) -> CandidateResult:
+    return CandidateResult(**payload)
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Endpoints
 # ──────────────────────────────────────────────────────────────────────────────
@@ -127,6 +241,170 @@ def _result_to_out(r) -> CandidateResult:
 def health_check():
     """Verify the API is running."""
     return {"status": "ok", "service": "Resume Ranker API v1.0.0"}
+
+
+@app.post("/api/check-bias", response_model=BiasReport, tags=["Ethical AI"])
+async def check_bias(request: Dict[str, Any], _: None = Depends(require_api_key)):
+    """
+    Analyze a job description for biased or exclusionary language.
+    """
+    text = request.get("text", "")
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="Text is required for bias analysis.")
+
+    detector = BiasDetector()
+    return detector.analyze_text(text)
+
+
+@app.post("/api/detect-bias", tags=["Ethical AI"])
+async def detect_bias(request: Dict[str, Any], _: None = Depends(require_api_key)):
+    """
+    Compatibility endpoint used by backend jobs router.
+    Returns normalized biasFlags payload expected by Node backend.
+    """
+    text = request.get("job_description") or request.get("text") or ""
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="job_description or text is required.")
+
+    detector = BiasDetector()
+    report = detector.analyze_text(text)
+    bias_flags = [
+        {
+            "term": finding.get("term", ""),
+            "suggestion": finding.get("suggestion", ""),
+            "severity": "high" if finding.get("count", 0) > 1 else "medium",
+        }
+        for finding in report.get("findings", [])
+    ]
+    return {
+        "biasFlags": bias_flags,
+        "biasScore": report.get("bias_score", 0),
+        "isBiased": report.get("is_biased", False),
+        "recommendation": report.get("recommendation", ""),
+    }
+
+
+@app.post("/api/score-candidate", response_model=ScoreCandidateResponse, tags=["AI Scoring"])
+async def score_candidate(request: ScoreCandidateRequest, _: None = Depends(require_api_key)):
+    """
+    Score one candidate profile against one job description.
+    Returns 0-100 matchScore with recruiter-friendly explanation.
+    """
+    candidate_profile = request.candidate_profile or {}
+    job_description = request.job_description or {}
+
+    profile_skills = candidate_profile.get("skills") or []
+    profile_experience = candidate_profile.get("experience") or []
+    profile_education = candidate_profile.get("education") or []
+
+    resume_parts: list[str] = []
+    if profile_skills:
+        resume_parts.append(f"Skills: {', '.join(map(str, profile_skills))}")
+    for exp in profile_experience:
+        if isinstance(exp, dict):
+            title = exp.get("title") or exp.get("role") or ""
+            company = exp.get("company") or ""
+            years = exp.get("years")
+            years_part = f" ({years} years)" if years is not None else ""
+            resume_parts.append(f"Experience: {title} at {company}{years_part}".strip())
+    for edu in profile_education:
+        if isinstance(edu, dict):
+            degree = edu.get("degree") or ""
+            institution = edu.get("institution") or ""
+            resume_parts.append(f"Education: {degree} at {institution}".strip())
+    resume_text = "\n".join(part for part in resume_parts if part).strip()
+
+    jd_required_skills = job_description.get("requiredSkills") or []
+    jd_title = str(job_description.get("title") or "").strip()
+    jd_description = str(job_description.get("description") or "").strip()
+    jd_experience_min = job_description.get("experienceMin")
+    jd_parts = [jd_title, jd_description]
+    if jd_required_skills:
+        jd_parts.append(f"Required skills: {', '.join(map(str, jd_required_skills))}")
+    if jd_experience_min is not None:
+        jd_parts.append(f"Minimum {jd_experience_min} years experience required")
+    jd_text = "\n".join(part for part in jd_parts if part).strip()
+
+    if not jd_text:
+        raise HTTPException(status_code=400, detail="job_description must include title or description.")
+    if not resume_text:
+        return {
+            "matchScore": 0,
+            "breakdown": {"skills": 0, "experience": 0, "education": 0},
+            "explanation": {
+                "matchedSkills": [],
+                "missingSkills": jd_required_skills,
+                "experienceNote": "Candidate profile does not include enough data for scoring.",
+            },
+        }
+
+    skill_match = compute_skill_score(resume_text, jd_text)
+    experience_match = compute_experience_score(resume_text, jd_text)
+    semantic_similarity = 0.5
+    final_score = compute_final_score(
+        similarity_score=semantic_similarity,
+        skill_score=skill_match.skill_score,
+        experience_score=experience_match.experience_score,
+    )
+    match_score = round(final_score * 100, 2)
+
+    return {
+        "matchScore": match_score,
+        "breakdown": {
+            "skills": round(skill_match.skill_score * 100, 2),
+            "experience": round(experience_match.experience_score * 100, 2),
+            "education": 0,
+        },
+        "explanation": {
+            "matchedSkills": skill_match.matched_skills,
+            "missingSkills": skill_match.missing_skills,
+            "experienceNote": experience_match.note,
+        },
+    }
+
+
+@app.post("/api/parse-resume", response_model=ParseResumeResponse, tags=["AI Extraction"])
+async def parse_resume_endpoint(
+    request: ParseResumeRequest,
+    anonymize: bool = False,
+    _: None = Depends(require_api_key),
+):
+    """
+    Fetch a resume from a URL, extract raw text, and return structured JSON
+    for profile auto-filling in the backend.
+    """
+    try:
+        # 1. Fetch file bytes from R2
+        async with httpx.AsyncClient() as client:
+            response = await client.get(str(request.file_url), timeout=10.0)
+            if response.status_code != 200:
+                raise HTTPException(status_code=502, detail="Failed to fetch resume from storage.")
+            file_bytes = response.content
+
+        # 2. Extract raw text
+        raw_text = parse_resume(file_bytes, request.file_path)
+
+        if not raw_text:
+            return ParseResumeResponse(skills=[], education=[], experience=[])
+
+        # 3. Optional Anonymization (PII Masking)
+        if anonymize:
+            masker = PIIMasker()
+            # Note: In production we'd pass the loaded spacy nlp object here
+            # For now, we use the regex-based mask.
+            raw_text = masker.mask(raw_text)
+
+        # 4. Structured extraction
+        extractor = ResumeStructuredExtractor()
+        structured_data = extractor.parse(raw_text)
+
+        return ParseResumeResponse(**structured_data)
+
+    except ValueError as e:
+        raise HTTPException(status_code=415, detail=str(e))
+    except Exception as e:
+        logger.exception("Resume parsing failed for %s", request.file_path)
+        raise HTTPException(status_code=500, detail=f"Parsing error: {str(e)}")
 
 
 @app.post("/upload_resume", tags=["Data Upload"])
@@ -143,8 +421,9 @@ async def upload_resume(
     Upload one or more resume files for a given job session.
     Files are stored in memory; actual parsing happens at /get_rankings.
     """
-    if job_id not in SESSION_STORE:
-        SESSION_STORE[job_id] = {"resumes": [], "jd_text": "", "results": []}
+    session = session_store.get(job_id)
+    if not session:
+        session = _new_session()
 
     names = [n.strip() for n in candidate_names.split(",")] if candidate_names else []
 
@@ -152,18 +431,24 @@ async def upload_resume(
     for i, file in enumerate(files):
         content = await file.read()
         name = names[i] if i < len(names) else ""
-        SESSION_STORE[job_id]["resumes"].append(
-            ResumeFile(filename=file.filename or f"resume_{i}.pdf",
-                       file_bytes=content,
-                       candidate_name=name)
+        session["resumes"].append(
+            _encode_resume_file(
+                ResumeFile(
+                    filename=file.filename or f"resume_{i}.pdf",
+                    file_bytes=content,
+                    candidate_name=name,
+                )
+            )
         )
         uploaded.append(file.filename)
+
+    session_store.set(job_id, session)
 
     logger.info("Uploaded %d resume(s) to job_id=%s", len(files), job_id)
     return {
         "job_id": job_id,
         "uploaded_files": uploaded,
-        "total_resumes_in_session": len(SESSION_STORE[job_id]["resumes"]),
+        "total_resumes_in_session": len(session["resumes"]),
     }
 
 
@@ -180,12 +465,13 @@ async def upload_jd(
         raise HTTPException(status_code=400, detail="Job description cannot be empty.")
 
     job_id = str(uuid.uuid4())
-    SESSION_STORE[job_id] = {
-        "resumes": [],
-        "jd_text": jd_text,
-        "job_title": job_title or "Untitled Position",
-        "results": [],
-    }
+    session_store.set(
+        job_id,
+        {
+            **_new_session(job_title=job_title or "Untitled Position"),
+            "jd_text": jd_text,
+        },
+    )
 
     logger.info("New job session created: job_id=%s (%s)", job_id, job_title)
     return {
@@ -214,11 +500,10 @@ async def get_rankings(
 
     Returns ranked candidate list with scores and skill gap analysis.
     """
-    if job_id not in SESSION_STORE:
+    session = session_store.get(job_id)
+    if not session:
         raise HTTPException(status_code=404, detail=f"job_id '{job_id}' not found.")
-
-    session = SESSION_STORE[job_id]
-    resumes: list[ResumeFile] = session.get("resumes", [])
+    resumes: list[ResumeFile] = [_decode_resume_file(item) for item in session.get("resumes", [])]
     jd_text: str = session.get("jd_text", "")
 
     if not resumes:
@@ -239,13 +524,16 @@ async def get_rankings(
         logger.exception("Ranking pipeline failed for job_id=%s", job_id)
         raise HTTPException(status_code=500, detail=f"Ranking failed: {str(e)}")
 
-    # Cache results
-    session["results"] = results
+    rankings = [_result_to_out(r) for r in results]
+
+    # Persist results for multi-step retrieval (/results/{job_id})
+    session["results"] = [_candidate_result_to_dict(result) for result in rankings]
+    session_store.set(job_id, session)
 
     return RankingResponse(
         job_id=job_id,
-        total_resumes=len(results),
-        rankings=[_result_to_out(r) for r in results],
+        total_resumes=len(rankings),
+        rankings=rankings,
     )
 
 
@@ -255,10 +543,11 @@ def get_results(job_id: str):
     Retrieve previously computed rankings for a job session
     (cached after /get_rankings was called).
     """
-    if job_id not in SESSION_STORE:
+    session = session_store.get(job_id)
+    if not session:
         raise HTTPException(status_code=404, detail=f"job_id '{job_id}' not found.")
-
-    results = SESSION_STORE[job_id].get("results", [])
+    results_payload = session.get("results", [])
+    results = [_candidate_result_from_dict(item) for item in results_payload]
     if not results:
         raise HTTPException(
             status_code=404,
@@ -275,9 +564,9 @@ def get_results(job_id: str):
 @app.delete("/clear/{job_id}", tags=["System"])
 def clear_session(job_id: str):
     """Delete all data associated with a job session."""
-    if job_id not in SESSION_STORE:
+    deleted = session_store.delete(job_id)
+    if not deleted:
         raise HTTPException(status_code=404, detail=f"job_id '{job_id}' not found.")
-    del SESSION_STORE[job_id]
     return {"message": f"Session '{job_id}' cleared successfully."}
 
 

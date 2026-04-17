@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { jobsAPI, applicationsAPI, adminAPI } from '../services/api';
+import { jobsAPI, applicationsAPI, adminAPI, recruiterAPI } from '../services/api';
 
 export default function Dashboard() {
   const { user, isRecruiter, isAdmin, isCandidate } = useAuth();
+  const firstName = user?.profile?.firstName || user?.firstName || 'User';
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [recentJobs, setRecentJobs] = useState([]);
@@ -13,35 +14,49 @@ export default function Dashboard() {
   useEffect(() => {
     async function loadDashboard() {
       try {
-        if (isAdmin) {
-          const res = await adminAPI.analytics();
-          const a = res.data.analytics || {};
-          setStats({
-            totalUsers: a.users?.total || 0,
-            totalJobs: a.jobs?.total || 0,
-            totalApplications: a.applications?.total || 0,
-            aiProcessed: 0,
-          });
-        }
-
-        const jobsRes = await jobsAPI.list({ limit: 5 });
-        setRecentJobs(jobsRes.data.jobs || jobsRes.data || []);
-
         if (isCandidate) {
+          const jobsRes = await jobsAPI.list({ limit: 5 });
+          setRecentJobs(jobsRes.data.jobs || jobsRes.data || []);
+
           const appsRes = await applicationsAPI.myApplications();
           const apps = appsRes.data.applications || appsRes.data || [];
           setStats({
             totalApplications: apps.length,
-            pendingReview: apps.filter(a => a.status === 'submitted').length,
+            applied: apps.filter((a) => a.status === 'applied').length,
             shortlisted: apps.filter(a => a.status === 'shortlisted').length,
+            interview: apps.filter((a) => a.status === 'interview').length,
             rejected: apps.filter(a => a.status === 'rejected').length,
           });
         }
 
         if (isRecruiter) {
+          const [jobsRes, recruiterAnalyticsRes] = await Promise.all([
+            jobsAPI.list({ limit: 5 }),
+            recruiterAPI.analytics(),
+          ]);
+          setRecentJobs(jobsRes.data.jobs || jobsRes.data || []);
+          const analytics = recruiterAnalyticsRes.data.analytics || {};
           setStats({
-            totalJobs: (jobsRes.data.jobs || jobsRes.data || []).length,
-            activeJobs: (jobsRes.data.jobs || jobsRes.data || []).filter(j => j.status === 'open').length,
+            totalJobs: analytics.jobs?.total || 0,
+            activeJobs: analytics.jobs?.open || 0,
+            totalApplications: analytics.applications?.total || 0,
+            interviewsScheduled: analytics.interviews?.scheduled || 0,
+          });
+        }
+
+        if (isAdmin) {
+          const [jobsRes, res] = await Promise.all([
+            jobsAPI.list({ limit: 5 }),
+            adminAPI.analytics(),
+          ]);
+          setRecentJobs(jobsRes.data.jobs || jobsRes.data || []);
+          const a = res.data.analytics || {};
+          setStats({
+            totalUsers: a.users?.total || 0,
+            totalJobs: a.jobs?.total || 0,
+            openJobs: a.jobs?.open || 0,
+            totalApplications: a.applications?.total || 0,
+            applicationsLastWeek: a.applications?.lastWeek || 0,
           });
         }
       } catch (err) {
@@ -62,7 +77,7 @@ export default function Dashboard() {
       <div className="container">
         <div className="page-header fade-in">
           <h1 className="page-title">
-            Welcome back, <span className="text-gradient">{user?.firstName}</span>
+            Welcome back, <span className="text-gradient">{firstName}</span>
           </h1>
           <p className="page-subtitle">
             {isCandidate && 'Track your applications and find new opportunities'}
@@ -85,8 +100,8 @@ export default function Dashboard() {
               <div className="stat-card fade-in delay-2">
                 <div className="stat-icon amber">⏳</div>
                 <div className="stat-content">
-                  <h3>{stats.pendingReview}</h3>
-                  <p>Pending Review</p>
+                  <h3>{stats.applied}</h3>
+                  <p>Applied</p>
                 </div>
               </div>
               <div className="stat-card fade-in delay-3">
@@ -97,10 +112,10 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="stat-card fade-in delay-4">
-                <div className="stat-icon rose">❌</div>
+                <div className="stat-icon cyan">📅</div>
                 <div className="stat-content">
-                  <h3>{stats.rejected}</h3>
-                  <p>Rejected</p>
+                  <h3>{stats.interview}</h3>
+                  <p>Interview</p>
                 </div>
               </div>
             </>
@@ -120,6 +135,20 @@ export default function Dashboard() {
                 <div className="stat-content">
                   <h3>{stats.activeJobs}</h3>
                   <p>Active Jobs</p>
+                </div>
+              </div>
+              <div className="stat-card fade-in delay-3">
+                <div className="stat-icon cyan">📋</div>
+                <div className="stat-content">
+                  <h3>{stats.totalApplications}</h3>
+                  <p>Applications</p>
+                </div>
+              </div>
+              <div className="stat-card fade-in delay-4">
+                <div className="stat-icon amber">📅</div>
+                <div className="stat-content">
+                  <h3>{stats.interviewsScheduled}</h3>
+                  <p>Interviews</p>
                 </div>
               </div>
             </>
@@ -149,10 +178,10 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="stat-card fade-in delay-4">
-                <div className="stat-icon amber">🤖</div>
+                <div className="stat-icon amber">🟢</div>
                 <div className="stat-content">
-                  <h3>{stats.aiProcessed || 0}</h3>
-                  <p>AI Processed</p>
+                  <h3>{stats.openJobs || 0}</h3>
+                  <p>Open Jobs</p>
                 </div>
               </div>
             </>
@@ -189,7 +218,9 @@ export default function Dashboard() {
                       <div className="job-card-title">{job.title}</div>
                       <div className="job-card-meta">
                         <span>📍 {job.location || 'Remote'}</span>
-                        <span>💼 {job.employmentType || 'Full-time'}</span>
+                        {(job.experienceMin !== undefined || job.experienceMax !== undefined) && (
+                          <span>🧠 {job.experienceMin ?? 0}–{job.experienceMax ?? 99} yrs</span>
+                        )}
                         {job.salaryRange && (
                           <span>💰 ${job.salaryRange.min?.toLocaleString()} – ${job.salaryRange.max?.toLocaleString()}</span>
                         )}

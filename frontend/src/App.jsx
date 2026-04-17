@@ -9,7 +9,7 @@ import Dashboard from './pages/Dashboard';
 import JobBoard from './pages/JobBoard';
 import JobDetail from './pages/JobDetail';
 import MyApplications from './pages/MyApplications';
-import AdminConsole from './pages/AdminConsole';
+import AdminConsole from './pages/admin/AdminConsole';
 
 // New pages — Batch 5 implementation
 import Profile from './pages/candidate/Profile';
@@ -81,9 +81,6 @@ export default function App() {
         } />
         <Route path="/reports" element={
           <ProtectedRoute roles={['recruiter', 'admin']}><Reports /></ProtectedRoute>
-        } />
-        <Route path="/recruiter/analytics" element={
-          <ProtectedRoute roles={['recruiter', 'admin']}><RecruiterAnalytics /></ProtectedRoute>
         } />
         <Route path="/recruiter/analytics" element={
           <ProtectedRoute roles={['recruiter', 'admin']}><RecruiterAnalytics /></ProtectedRoute>

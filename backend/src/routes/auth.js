@@ -70,6 +70,8 @@ router.post('/register', asyncHandler(async (req, res) => {
   res.status(201).json({
     message: 'Registration successful.',
     user,
+    token: accessToken,
+    refreshToken,
   });
 }));
 
@@ -87,6 +89,8 @@ router.post('/login', asyncHandler(async (req, res) => {
   if (!user || !(await user.comparePassword(password))) {
     await createAuditEntry({
       action: 'auth.login.failed',
+      userId: user?._id,
+      userRole: user?.role,
       targetType: 'user',
       metadata: { email },
       req,
@@ -109,6 +113,8 @@ router.post('/login', asyncHandler(async (req, res) => {
   res.json({
     message: 'Login successful.',
     user,
+    token: accessToken,
+    refreshToken,
   });
 }));
 
@@ -120,7 +126,7 @@ router.post('/login', asyncHandler(async (req, res) => {
  * Reads the refresh token from the httpOnly cookie rather than the request body.
  */
 router.post('/refresh', asyncHandler(async (req, res) => {
-  const refreshToken = req.cookies?.srrss_refresh_token;
+  const refreshToken = req.cookies?.srrss_refresh_token || req.body?.refreshToken;
   if (!refreshToken) {
     throw new AppError('Refresh token is required.', 400);
   }
@@ -153,7 +159,11 @@ router.post('/refresh', asyncHandler(async (req, res) => {
   });
   res.cookie('srrss_refresh_token', newRefreshToken, cookieOptions);
 
-  res.json({ message: 'Token refreshed.' });
+  res.json({
+    message: 'Token refreshed.',
+    token: newAccessToken,
+    refreshToken: newRefreshToken,
+  });
 }));
 
 /**
@@ -327,3 +337,5 @@ router.post('/reset-password', asyncHandler(async (req, res) => {
 
   res.json({ message: 'Password reset successful. Please log in with your new password.' });
 }));
+
+module.exports = router;

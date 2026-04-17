@@ -17,6 +17,7 @@ export default function MyInterviews() {
   const [interviews, setInterviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [statusFilter, setStatusFilter] = useState('upcoming');
 
   useEffect(() => {
     loadInterviews();
@@ -24,15 +25,12 @@ export default function MyInterviews() {
 
   async function loadInterviews() {
     try {
-      // Fetch upcoming interviews (scheduled + rescheduled) with a reasonable limit
-      const res = await interviewsAPI.list({ status: 'scheduled', limit: 100 });
-      const scheduled = res.data.interviews || [];
-      // Also fetch rescheduled to include those
-      const res2 = await interviewsAPI.list({ status: 'rescheduled', limit: 100 });
-      const rescheduled = res2.data.interviews || [];
-      setInterviews([...scheduled, ...rescheduled].sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt)));
-    } catch {
-      setError('Failed to load interviews');
+      const res = await interviewsAPI.list({ limit: 200 });
+      const all = res.data.interviews || [];
+      all.sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt));
+      setInterviews(all);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to load interviews');
     } finally {
       setLoading(false);
     }
@@ -42,6 +40,21 @@ export default function MyInterviews() {
     const map = { scheduled: 'badge-info', completed: 'badge-success', cancelled: 'badge-error', rescheduled: 'badge-warning', 'no-show': 'badge-error' };
     return map[status] || 'badge-neutral';
   };
+
+  const formatInterviewDate = (iv) => {
+    const timeZone = iv.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    return new Intl.DateTimeFormat('en-US', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+      timeZone,
+    }).format(new Date(iv.scheduledAt));
+  };
+
+  const filteredInterviews = interviews.filter((iv) => {
+    if (statusFilter === 'all') return true;
+    if (statusFilter === 'upcoming') return ['scheduled', 'rescheduled'].includes(iv.status);
+    return iv.status === statusFilter;
+  });
 
   if (loading) {
     return <div className="loading-center"><div className="spinner spinner-lg" /></div>;
@@ -55,21 +68,39 @@ export default function MyInterviews() {
           <p className="page-subtitle">View your upcoming interview schedule</p>
         </div>
 
+        <div className="flex gap-sm" style={{ marginBottom: 16, flexWrap: 'wrap' }}>
+          {[
+            { key: 'upcoming', label: 'Upcoming' },
+            { key: 'all', label: 'All' },
+            { key: 'completed', label: 'Completed' },
+            { key: 'cancelled', label: 'Cancelled' },
+          ].map((filter) => (
+            <button
+              key={filter.key}
+              type="button"
+              className={`btn btn-sm ${statusFilter === filter.key ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setStatusFilter(filter.key)}
+            >
+              {filter.label}
+            </button>
+          ))}
+        </div>
+
         {error && (
           <div className="alert alert-error fade-in" style={{ marginBottom: 16 }}>❌ {error}</div>
         )}
 
-        {interviews.length === 0 ? (
+        {filteredInterviews.length === 0 ? (
           <div className="card">
             <div className="empty-state">
               <div className="icon">📅</div>
-              <h3>No upcoming interviews</h3>
-              <p>When a recruiter schedules an interview for you, it will appear here.</p>
+              <h3>No interviews found</h3>
+              <p>No interviews match the selected status filter.</p>
             </div>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {interviews.map((iv) => (
+            {filteredInterviews.map((iv) => (
               <div key={iv._id} className="card slide-up" style={{ padding: 20 }}>
                 <div className="flex items-center justify-between">
                   <div>
@@ -83,7 +114,10 @@ export default function MyInterviews() {
                   <div style={{ textAlign: 'right' }}>
                     <span className={`badge ${getStatusColor(iv.status)}`}>{iv.status}</span>
                     <p style={{ fontSize: 13, marginTop: 4, fontWeight: 600 }}>
-                      📅 {new Date(iv.scheduledAt).toLocaleString()}
+                      📅 {formatInterviewDate(iv)}
+                    </p>
+                    <p style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                      {iv.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone}
                     </p>
                   </div>
                 </div>
@@ -93,6 +127,11 @@ export default function MyInterviews() {
                     <a href={iv.link} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-primary)', fontWeight: 600 }}>
                       Join Interview
                     </a>
+                  </p>
+                )}
+                {iv.link && !isSafeUrl(iv.link) && (
+                  <p style={{ marginTop: 8, fontSize: 13, color: 'var(--color-warning)' }}>
+                    ⚠️ Meeting link is unavailable due to safety validation.
                   </p>
                 )}
                 {iv.notes && (

@@ -78,5 +78,41 @@ describe('Candidates API', () => {
 
       expect(res.status).toBe(200);
     });
+
+    it('should persist recruiter blind-screening setting', async () => {
+      const updateRes = await request
+        .patch('/api/recruiter/settings')
+        .set('Authorization', `Bearer ${recruiter.token}`)
+        .send({ blindScreeningEnabled: true });
+
+      expect(updateRes.status).toBe(200);
+      expect(updateRes.body.settings.blindScreeningEnabled).toBe(true);
+
+      const readRes = await request
+        .get('/api/recruiter/settings')
+        .set('Authorization', `Bearer ${recruiter.token}`);
+
+      expect(readRes.status).toBe(200);
+      expect(readRes.body.settings.blindScreeningEnabled).toBe(true);
+    });
+
+    it('should mask candidate identity when recruiter blind mode is enabled', async () => {
+      await request
+        .patch('/api/recruiter/settings')
+        .set('Authorization', `Bearer ${recruiter.token}`)
+        .send({ blindScreeningEnabled: true });
+
+      const res = await request
+        .get(`/api/candidates?jobId=${job._id}`)
+        .set('Authorization', `Bearer ${recruiter.token}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.blindMode).toBe(true);
+      expect(res.body.candidates.length).toBe(2);
+      res.body.candidates.forEach((candidateRow) => {
+        expect(candidateRow.email).toBeNull();
+        expect(candidateRow.profile.firstName).toBe('Anonymous');
+      });
+    });
   });
 });

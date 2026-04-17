@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { interviewsAPI, jobsAPI, applicationsAPI } from '../../services/api';
 
 /**
@@ -21,6 +22,13 @@ function formatTime(date) {
   return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 }
 
+function toDatetimeLocalValue(dateString) {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 const TYPE_ICONS = {
   video: '📹',
   phone: '📞',
@@ -30,6 +38,7 @@ const TYPE_ICONS = {
 };
 
 export default function InterviewScheduler() {
+  const [searchParams] = useSearchParams();
   const [interviews, setInterviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -38,6 +47,7 @@ export default function InterviewScheduler() {
   const [jobs, setJobs] = useState([]);
   const [applications, setApplications] = useState([]);
   const [selectedJob, setSelectedJob] = useState('');
+  const [editingInterview, setEditingInterview] = useState(null);
   const [view, setView] = useState('list'); // 'list' | 'calendar' | 'week'
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(null); // for day-detail modal
@@ -57,6 +67,15 @@ export default function InterviewScheduler() {
     loadJobs();
   }, []);
 
+  useEffect(() => {
+    const preselectedApplicationId = searchParams.get('applicationId');
+    if (preselectedApplicationId) {
+      setShowForm(true);
+      setEditingInterview(null);
+      setForm((prev) => ({ ...prev, applicationId: preselectedApplicationId }));
+    }
+  }, [searchParams]);
+
   async function loadInterviews() {
     try {
       const res = await interviewsAPI.list({ limit: 500 });
@@ -72,32 +91,92 @@ export default function InterviewScheduler() {
     } catch { /* ignore */ }
   }
 
-  async function loadApplicationsForJob(jobId) {
+  async function loadApplicationsForJob(jobId, includeAnyStatus = false) {
     if (!jobId) { setApplications([]); return; }
     try {
-      const res = await applicationsAPI.forJob(jobId, { status: 'shortlisted', limit: 100 });
+      const params = { limit: 100 };
+      if (!includeAnyStatus) params.status = 'shortlisted';
+      const res = await applicationsAPI.forJob(jobId, params);
       setApplications(res.data.applications || []);
     } catch { /* ignore */ }
   }
 
   const handleJobChange = (jobId) => {
     setSelectedJob(jobId);
-    setForm({ ...form, applicationId: '' });
+    setForm((prev) => ({ ...prev, applicationId: '' }));
     loadApplicationsForJob(jobId);
+  };
+
+  const resetForm = () => {
+    setForm({
+      applicationId: '',
+      scheduledAt: '',
+      duration: 60,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      link: '',
+      type: 'video',
+      notes: '',
+    });
+  };
+
+  const openEditInterview = async (iv) => {
+    const jobId = iv.jobId?._id || '';
+    setEditingInterview(iv);
+    setSelectedJob(jobId);
+    await loadApplicationsForJob(jobId, true);
+    setForm({
+      applicationId: iv.applicationId?._id || iv.applicationId || '',
+      scheduledAt: toDatetimeLocalValue(iv.scheduledAt),
+      duration: iv.duration || 60,
+      timezone: iv.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+      link: iv.link || '',
+      type: iv.type || 'video',
+      notes: iv.notes || '',
+    });
+    setShowForm(true);
   };
 
   const handleSchedule = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
+
+    if (form.link && !isSafeUrl(form.link)) {
+      setError('Meeting link must be a safe URL (http/https).');
+      return;
+    }
+
+    if (form.scheduledAt && new Date(form.scheduledAt) < new Date()) {
+      setError('Interview time must be in the future.');
+      return;
+    }
+
     try {
-      await interviewsAPI.create(form);
-      setSuccess('Interview scheduled successfully!');
+      if (editingInterview) {
+        await interviewsAPI.update(editingInterview._id, {
+          scheduledAt: form.scheduledAt,
+          duration: form.duration,
+          timezone: form.timezone,
+          link: form.link,
+          type: form.type,
+          notes: form.notes,
+        });
+        setSuccess('Interview updated successfully!');
+      } else {
+        await interviewsAPI.create(form);
+        setSuccess('Interview scheduled successfully!');
+      }
       setShowForm(false);
-      setForm({ applicationId: '', scheduledAt: '', duration: 60, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, link: '', type: 'video', notes: '' });
+      setEditingInterview(null);
+      resetForm();
       loadInterviews();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to schedule interview');
+      const apiError = err.response?.data?.error || 'Failed to schedule interview';
+      if (err.response?.status === 409) {
+        setError(`Scheduling conflict: ${apiError}`);
+      } else {
+        setError(apiError);
+      }
     }
   };
 
@@ -205,8 +284,21 @@ export default function InterviewScheduler() {
                   Week
                 </button>
               </div>
-              <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
-                {showForm ? 'Cancel' : '+ Schedule Interview'}
+              <button
+                className="btn btn-primary"
+                onClick={() => {
+                  if (showForm) {
+                    setShowForm(false);
+                    setEditingInterview(null);
+                    resetForm();
+                  } else {
+                    setEditingInterview(null);
+                    resetForm();
+                    setShowForm(true);
+                  }
+                }}
+              >
+                {showForm ? 'Close Form' : '+ Schedule Interview'}
               </button>
             </div>
           </div>
@@ -218,19 +310,33 @@ export default function InterviewScheduler() {
         {/* Schedule Form */}
         {showForm && (
           <div className="card slide-up" style={{ marginBottom: 24 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Schedule New Interview</h2>
+            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>
+              {editingInterview ? 'Reschedule Interview' : 'Schedule New Interview'}
+            </h2>
             <form onSubmit={handleSchedule}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <div className="form-group">
                   <label className="form-label">Job</label>
-                  <select className="form-input" value={selectedJob} onChange={(e) => handleJobChange(e.target.value)} required>
+                  <select
+                    className="form-input"
+                    value={selectedJob}
+                    onChange={(e) => handleJobChange(e.target.value)}
+                    required
+                    disabled={!!editingInterview}
+                  >
                     <option value="">Select a job</option>
                     {jobs.map(j => <option key={j._id} value={j._id}>{j.title}</option>)}
                   </select>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Candidate (Application)</label>
-                  <select className="form-input" value={form.applicationId} onChange={(e) => setForm({ ...form, applicationId: e.target.value })} required>
+                  <select
+                    className="form-input"
+                    value={form.applicationId}
+                    onChange={(e) => setForm({ ...form, applicationId: e.target.value })}
+                    required
+                    disabled={!!editingInterview}
+                  >
                     <option value="">Select candidate</option>
                     {applications.map(a => (
                       <option key={a._id} value={a._id}>
@@ -266,9 +372,22 @@ export default function InterviewScheduler() {
                 <label className="form-label">Notes</label>
                 <textarea className="form-input" rows="3" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Discussion topics, preparation notes..." />
               </div>
-              <button type="submit" className="btn btn-primary" style={{ marginTop: 16 }}>
-                Schedule Interview
-              </button>
+              <div className="flex gap-sm" style={{ marginTop: 16 }}>
+                <button type="submit" className="btn btn-primary">
+                  {editingInterview ? 'Save Changes' : 'Schedule Interview'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => {
+                    setShowForm(false);
+                    setEditingInterview(null);
+                    resetForm();
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
             </form>
           </div>
         )}
@@ -534,7 +653,7 @@ export default function InterviewScheduler() {
                         {formatTime(new Date(iv.scheduledAt))} — {new Date(iv.scheduledAt).toLocaleDateString()}
                       </p>
                       <p style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                        {iv.duration} min
+                        {iv.duration} min • {iv.timezone || form.timezone}
                       </p>
                     </div>
                   </div>
@@ -543,13 +662,21 @@ export default function InterviewScheduler() {
                       <a href={iv.link} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-primary)' }}>{iv.link}</a>
                     </p>
                   )}
+                  {iv.link && !isSafeUrl(iv.link) && (
+                    <p style={{ marginTop: 8, fontSize: 13, color: 'var(--color-warning)' }}>
+                      Unsafe meeting link blocked.
+                    </p>
+                  )}
                   {iv.notes && (
                     <p style={{ marginTop: 8, fontSize: 13, color: 'var(--color-text-secondary)' }}>
                       {iv.notes}
                     </p>
                   )}
                   {iv.status !== 'cancelled' && iv.status !== 'completed' && (
-                    <div style={{ marginTop: 12 }}>
+                    <div className="flex gap-sm" style={{ marginTop: 12 }}>
+                      <button className="btn btn-primary btn-sm" onClick={() => openEditInterview(iv)}>
+                        Reschedule
+                      </button>
                       <button className="btn btn-secondary btn-sm" onClick={() => handleCancel(iv._id)}>Cancel</button>
                     </div>
                   )}

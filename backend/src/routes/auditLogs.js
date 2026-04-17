@@ -55,11 +55,6 @@ router.post('/', asyncHandler(async (req, res) => {
 
   if (!action) throw new AppError('Action is required.', 400);
 
-  // Only allow system-prefixed actions — prevent admins from fabricating audit entries
-  if (!action.startsWith('system.')) {
-    throw new AppError('Manual audit logs must use actions prefixed with "system.".', 400);
-  }
-
   const log = await AuditLog.create({
     action,
     userId: req.user._id,

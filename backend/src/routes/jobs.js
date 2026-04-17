@@ -3,10 +3,13 @@ const axios = require('axios');
 const Job = require('../models/Job');
 const { authenticate, authorize } = require('../middleware/auth');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
-const { isSafeExternalUrl } = require('../utils/urlValidator');
+const { isSafeExternalUrl, parseTrustedHosts } = require('../utils/urlValidator');
 const logger = require('../utils/logger');
 
 const router = express.Router();
+const AI_TRUSTED_INTERNAL_HOSTS = parseTrustedHosts(
+  process.env.AI_TRUSTED_INTERNAL_HOSTS || 'localhost,127.0.0.1,::1,ai-service',
+);
 
 /**
  * GET /api/jobs — List all open jobs (with search/filter)
@@ -116,17 +119,28 @@ router.post('/', authenticate, authorize('recruiter', 'admin'), asyncHandler(asy
   // Call AI bias detection (non-blocking, best effort)
   try {
     const aiUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
-    const isSafe = await isSafeExternalUrl(aiUrl);
-    if (isSafe) {
+    const aiApiKey = process.env.AI_SERVICE_API_KEY;
+    const isSafe = await isSafeExternalUrl(aiUrl, { allowInternalHosts: AI_TRUSTED_INTERNAL_HOSTS });
+    if (isSafe && aiApiKey) {
       const biasResult = await axios.post(`${aiUrl}/api/detect-bias`, {
         job_description: description,
-      }, { timeout: 3000 });
+      }, {
+        timeout: 3000,
+        headers: {
+          'X-API-KEY': aiApiKey,
+        },
+      });
       if (biasResult.data?.biasFlags?.length > 0) {
         jobData.biasFlags = biasResult.data.biasFlags;
       }
+    } else if (!isSafe) {
+      logger.warn('AI service URL blocked — potential SSRF target', { url: aiUrl });
+    } else {
+      logger.warn('AI_SERVICE_API_KEY missing — skipping bias detection on job create.');
     }
-  } catch {
+  } catch (err) {
     // AI service unavailable — continue without bias check
+    logger.warn('Bias detection failed on job create', { error: err.message });
   }
 
   const job = await Job.create(jobData);
@@ -149,6 +163,32 @@ router.put('/:id', authenticate, authorize('recruiter', 'admin'), asyncHandler(a
   allowedFields.forEach((field) => {
     if (req.body[field] !== undefined) job[field] = req.body[field];
   });
+
+  // Re-run bias detection if description changed
+  if (req.body.description !== undefined) {
+    try {
+      const aiUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+      const aiApiKey = process.env.AI_SERVICE_API_KEY;
+      const isSafe = await isSafeExternalUrl(aiUrl, { allowInternalHosts: AI_TRUSTED_INTERNAL_HOSTS });
+      if (isSafe && aiApiKey) {
+        const biasResult = await axios.post(`${aiUrl}/api/detect-bias`, {
+          job_description: req.body.description,
+        }, {
+          timeout: 3000,
+          headers: {
+            'X-API-KEY': aiApiKey,
+          },
+        });
+        job.biasFlags = biasResult.data?.biasFlags || [];
+      } else if (!isSafe) {
+        logger.warn('AI service URL blocked — potential SSRF target', { url: aiUrl });
+      } else {
+        logger.warn('AI_SERVICE_API_KEY missing — skipping bias detection on job update.');
+      }
+    } catch (err) {
+      logger.warn('Bias detection failed on job update', { error: err.message });
+    }
+  }
 
   await job.save();
   res.json({ message: 'Job updated.', job });

@@ -3,10 +3,28 @@ import { authAPI } from '../services/api';
 
 const AuthContext = createContext(null);
 
+function normalizeUser(user) {
+  if (!user) return null;
+  const profile = user.profile || {};
+  const firstName = user.firstName ?? profile.firstName ?? '';
+  const lastName = user.lastName ?? profile.lastName ?? '';
+
+  return {
+    ...user,
+    firstName,
+    lastName,
+    profile: {
+      ...profile,
+      firstName: profile.firstName ?? firstName,
+      lastName: profile.lastName ?? lastName,
+    },
+  };
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem('srrss_user');
-    return saved ? JSON.parse(saved) : null;
+    return saved ? normalizeUser(JSON.parse(saved)) : null;
   });
   const [loading, setLoading] = useState(true);
 
@@ -14,8 +32,9 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     authAPI.me()
       .then(res => {
-        setUser(res.data.user);
-        localStorage.setItem('srrss_user', JSON.stringify(res.data.user));
+        const normalizedUser = normalizeUser(res.data.user);
+        setUser(normalizedUser);
+        localStorage.setItem('srrss_user', JSON.stringify(normalizedUser));
       })
       .catch(() => {
         localStorage.removeItem('srrss_user');
@@ -26,18 +45,18 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (email, password) => {
     const res = await authAPI.login({ email, password });
-    const { user: userData } = res.data;
-    localStorage.setItem('srrss_user', JSON.stringify(userData));
-    setUser(userData);
-    return userData;
+    const normalizedUser = normalizeUser(res.data.user);
+    localStorage.setItem('srrss_user', JSON.stringify(normalizedUser));
+    setUser(normalizedUser);
+    return normalizedUser;
   }, []);
 
   const register = useCallback(async (data) => {
     const res = await authAPI.register(data);
-    const { user: userData } = res.data;
-    localStorage.setItem('srrss_user', JSON.stringify(userData));
-    setUser(userData);
-    return userData;
+    const normalizedUser = normalizeUser(res.data.user);
+    localStorage.setItem('srrss_user', JSON.stringify(normalizedUser));
+    setUser(normalizedUser);
+    return normalizedUser;
   }, []);
 
   const logout = useCallback(async () => {

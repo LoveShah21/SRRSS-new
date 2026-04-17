@@ -34,6 +34,11 @@ const applicationSchema = new mongoose.Schema({
     experience: { type: Number, default: 0 },
     education: { type: Number, default: 0 },
   },
+  aiExplanation: {
+    matchedSkills: { type: [String], default: [] },
+    missingSkills: { type: [String], default: [] },
+    experienceNote: { type: String, default: '' },
+  },
   status: {
     type: String,
     enum: ['applied', 'shortlisted', 'interview', 'hired', 'rejected'],
@@ -50,6 +55,15 @@ const applicationSchema = new mongoose.Schema({
     scheduledAt: Date,
     link: String,
     notes: String,
+  },
+  isIdentityRevealed: {
+    type: Boolean,
+    default: false,
+  },
+  revealedAt: Date,
+  revealedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
   },
   appliedAt: { type: Date, default: Date.now },
 }, {

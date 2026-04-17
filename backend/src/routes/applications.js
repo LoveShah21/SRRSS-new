@@ -7,9 +7,13 @@ const { authenticate, authorize } = require('../middleware/auth');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { createAuditEntry } = require('../middleware/auditLogger');
 const { sendStatusChange, sendApplicationReceived } = require('../services/emailService');
-const { isSafeExternalUrl } = require('../utils/urlValidator');
+const { isSafeExternalUrl, parseTrustedHosts } = require('../utils/urlValidator');
+const logger = require('../utils/logger');
 
 const router = express.Router();
+const AI_TRUSTED_INTERNAL_HOSTS = parseTrustedHosts(
+  process.env.AI_TRUSTED_INTERNAL_HOSTS || 'localhost,127.0.0.1,::1,ai-service',
+);
 
 /**
  * POST /api/applications — Apply to a job (Candidate)
@@ -29,12 +33,16 @@ router.post('/', authenticate, authorize('candidate'), asyncHandler(async (req, 
   // Score the candidate against the job (AI service)
   let matchScore = 0;
   let scoreBreakdown = { skills: 0, experience: 0, education: 0 };
+  let aiExplanation = { matchedSkills: [], missingSkills: [], experienceNote: '' };
 
   try {
     const aiUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
-    const isSafe = await isSafeExternalUrl(aiUrl);
+    const aiApiKey = process.env.AI_SERVICE_API_KEY;
+    const isSafe = await isSafeExternalUrl(aiUrl, { allowInternalHosts: AI_TRUSTED_INTERNAL_HOSTS });
     if (!isSafe) {
       logger.warn('AI service URL blocked — potential SSRF target', { url: aiUrl });
+    } else if (!aiApiKey) {
+      logger.warn('AI_SERVICE_API_KEY missing — skipping candidate scoring.');
     } else {
       const scoreResult = await axios.post(`${aiUrl}/api/score-candidate`, {
         candidate_profile: req.user.profile,
@@ -44,11 +52,17 @@ router.post('/', authenticate, authorize('candidate'), asyncHandler(async (req, 
           requiredSkills: job.requiredSkills,
           experienceMin: job.experienceMin,
         },
-      }, { timeout: 5000 });
+      }, {
+        timeout: 5000,
+        headers: {
+          'X-API-KEY': aiApiKey,
+        },
+      });
 
       if (scoreResult.data) {
         matchScore = scoreResult.data.matchScore || 0;
         scoreBreakdown = scoreResult.data.breakdown || scoreBreakdown;
+        aiExplanation = scoreResult.data.explanation || aiExplanation;
       }
     }
   } catch {
@@ -60,6 +74,7 @@ router.post('/', authenticate, authorize('candidate'), asyncHandler(async (req, 
     jobId,
     matchScore,
     scoreBreakdown,
+    aiExplanation,
   });
 
   // Increment applicant count
@@ -119,6 +134,109 @@ router.get('/job/:jobId', authenticate, authorize('recruiter', 'admin'), asyncHa
   res.json({
     applications,
     pagination: { page: parseInt(page), limit: parseInt(limit), total, pages: Math.ceil(total / parseInt(limit)) },
+  });
+}));
+
+/**
+ * POST /api/applications/job/:jobId/rank — Re-rank applications for a job (Recruiter/Admin)
+ */
+router.post('/job/:jobId/rank', authenticate, authorize('recruiter', 'admin'), asyncHandler(async (req, res) => {
+  const job = await Job.findById(req.params.jobId);
+  if (!job) throw new AppError('Job not found.', 404);
+
+  if (req.user.role === 'recruiter' && job.recruiterId.toString() !== req.user._id.toString()) {
+    throw new AppError('You can only rank applications for your own jobs.', 403);
+  }
+
+  const applications = await Application.find({ jobId: req.params.jobId })
+    .populate('candidateId', 'profile email');
+
+  const aiUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+  const aiApiKey = process.env.AI_SERVICE_API_KEY;
+  const isSafe = await isSafeExternalUrl(aiUrl, { allowInternalHosts: AI_TRUSTED_INTERNAL_HOSTS });
+
+  if (isSafe && aiApiKey) {
+    await Promise.all(applications.map(async (application) => {
+      try {
+        const scoreResult = await axios.post(`${aiUrl}/api/score-candidate`, {
+          candidate_profile: application.candidateId?.profile || {},
+          job_description: {
+            title: job.title,
+            description: job.description,
+            requiredSkills: job.requiredSkills,
+            experienceMin: job.experienceMin,
+          },
+        }, {
+          timeout: 5000,
+          headers: {
+            'X-API-KEY': aiApiKey,
+          },
+        });
+
+        if (scoreResult.data) {
+          application.matchScore = scoreResult.data.matchScore || 0;
+          application.scoreBreakdown = scoreResult.data.breakdown || application.scoreBreakdown;
+          application.aiExplanation = scoreResult.data.explanation || application.aiExplanation;
+          await application.save();
+        }
+      } catch (err) {
+        logger.warn('Application re-rank failed', { applicationId: application._id.toString(), error: err.message });
+      }
+    }));
+  } else if (!isSafe) {
+    logger.warn('AI service URL blocked — potential SSRF target', { url: aiUrl });
+  } else {
+    logger.warn('AI_SERVICE_API_KEY missing — skipping application reranking.');
+  }
+
+  const rankedApplications = await Application.find({ jobId: req.params.jobId })
+    .populate('candidateId', 'profile email')
+    .sort({ matchScore: -1, appliedAt: 1 });
+
+  res.json({ rankedApplications });
+}));
+
+/**
+ * POST /api/applications/:id/reveal — Reveal candidate identity in blind mode (Recruiter/Admin)
+ */
+router.post('/:id/reveal', authenticate, authorize('recruiter', 'admin'), asyncHandler(async (req, res) => {
+  const application = await Application.findById(req.params.id)
+    .populate('jobId', 'recruiterId title')
+    .populate('candidateId', 'profile email');
+  if (!application) throw new AppError('Application not found.', 404);
+
+  if (
+    req.user.role === 'recruiter'
+    && application.jobId?.recruiterId?.toString() !== req.user._id.toString()
+  ) {
+    throw new AppError('You can only reveal candidates for your own jobs.', 403);
+  }
+
+  if (!['shortlisted', 'interview', 'hired'].includes(application.status)) {
+    throw new AppError('Candidate identity can be revealed only after shortlisting.', 400);
+  }
+
+  application.isIdentityRevealed = true;
+  application.revealedAt = new Date();
+  application.revealedBy = req.user._id;
+  await application.save();
+
+  await createAuditEntry({
+    action: 'candidate.identityReveal',
+    userId: req.user._id,
+    userRole: req.user.role,
+    targetType: 'application',
+    targetId: application._id,
+    metadata: {
+      candidateId: application.candidateId?._id,
+      jobId: application.jobId?._id,
+    },
+    req,
+  });
+
+  res.json({
+    message: 'Candidate identity revealed.',
+    application,
   });
 }));
 

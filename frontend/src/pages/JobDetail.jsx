@@ -19,7 +19,7 @@ export default function JobDetail() {
     async function load() {
       try {
         const res = await jobsAPI.get(id);
-        setJob(res.data);
+        setJob(res.data.job || res.data);
 
         if (isRecruiter || isAdmin) {
           try {
@@ -106,9 +106,10 @@ export default function JobDetail() {
             <div>
               <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 8 }}>{job.title}</h1>
               <div className="flex gap-md" style={{ fontSize: 14, color: 'var(--text-muted)' }}>
-                {job.department && <span>🏢 {job.department}</span>}
                 <span>📍 {job.location || 'Remote'}</span>
-                <span>💼 {job.employmentType || 'Full-time'}</span>
+                {(job.experienceMin !== undefined || job.experienceMax !== undefined) && (
+                  <span>🧠 {job.experienceMin ?? 0}–{job.experienceMax ?? 99} yrs</span>
+                )}
                 {job.salaryRange && (
                   <span>💰 ${job.salaryRange.min?.toLocaleString()} – ${job.salaryRange.max?.toLocaleString()}</span>
                 )}
@@ -137,15 +138,20 @@ export default function JobDetail() {
             </>
           )}
 
-          {job.preferredSkills?.length > 0 && (
-            <div style={{ marginTop: 16 }}>
+          {job.biasFlags?.length > 0 && (
+            <>
+              <div className="divider" />
               <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                Preferred Skills
+                Bias Review
               </h3>
-              <div className="tag-list">
-                {job.preferredSkills.map(skill => <span key={skill} className="tag" style={{ opacity: 0.7 }}>{skill}</span>)}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {job.biasFlags.map((flag, idx) => (
+                  <div key={`${flag.term}-${idx}`} className="alert alert-warning" style={{ margin: 0 }}>
+                    <strong>{flag.term}</strong>{flag.suggestion ? ` — ${flag.suggestion}` : ''}
+                  </div>
+                ))}
               </div>
-            </div>
+            </>
           )}
         </div>
 
@@ -220,33 +226,33 @@ export default function JobDetail() {
                       <tr key={app._id}>
                         <td>
                           <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
-                            {app.candidateId?.firstName || 'Unknown'} {app.candidateId?.lastName || ''}
+                            {app.candidateId?.profile?.firstName || 'Unknown'} {app.candidateId?.profile?.lastName || ''}
                           </div>
                           <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                             {app.candidateId?.email || ''}
                           </div>
                         </td>
                         <td>
-                          {app.aiScore != null ? (
-                            <div className={`score-circle ${scoreClass(app.aiScore)}`}>
-                              {Math.round(app.aiScore)}
-                            </div>
-                          ) : (
-                            <span style={{ color: 'var(--text-muted)' }}>—</span>
+                           {app.matchScore != null ? (
+                             <div className={`score-circle ${scoreClass(app.matchScore)}`}>
+                               {Math.round(app.matchScore)}
+                             </div>
+                           ) : (
+                             <span style={{ color: 'var(--text-muted)' }}>—</span>
                           )}
                         </td>
                         <td>
                           <span className={`badge ${
                             app.status === 'shortlisted' ? 'badge-success' :
                             app.status === 'rejected' ? 'badge-danger' :
-                            app.status === 'interviewed' ? 'badge-info' :
+                            app.status === 'interview' ? 'badge-info' :
                             'badge-warning'
                           }`}>
                             {app.status}
                           </span>
                         </td>
                         <td style={{ fontSize: 13 }}>
-                          {new Date(app.createdAt).toLocaleDateString()}
+                          {new Date(app.appliedAt || app.createdAt).toLocaleDateString()}
                         </td>
                         <td>
                           <div className="flex gap-sm">

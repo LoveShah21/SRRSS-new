@@ -62,7 +62,7 @@ jobs:
 
       - name: Run AI service tests
         working-directory: ./ai-service
-        run: pytest tests/ -v --cov=src --cov-report=term-missing
+        run: pytest tests/ -v --cov=. --cov-report=term-missing
 
   # Frontend Tests
   frontend-test:
@@ -87,6 +87,10 @@ jobs:
         run: npm test
         env:
           CI: true
+
+      - name: Build frontend
+        working-directory: ./frontend
+        run: npm run build
 
   # Build Docker images
   docker-build:
@@ -142,4 +146,10 @@ jobs:
 
       - name: Run Python lint
         working-directory: ./ai-service
-        run: flake8 src/ tests/ --max-line-length=100 || true
+        run: |
+          TARGETS=""
+          [ -f app.py ] && TARGETS="$TARGETS app.py"
+          [ -d models ] && TARGETS="$TARGETS models"
+          [ -d tests ] && TARGETS="$TARGETS tests"
+          [ -z "$TARGETS" ] && TARGETS="."
+          flake8 $TARGETS --max-line-length=100 || true

@@ -1,4 +1,3 @@
-const url = require('url');
 const net = require('net');
 
 /**
@@ -30,17 +29,38 @@ function isInternalIP(ip) {
   return false;
 }
 
+function normalizeHost(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+/**
+ * Parse trusted internal hostnames from CSV env-style string.
+ */
+function parseTrustedHosts(raw) {
+  return String(raw || '')
+    .split(',')
+    .map((host) => normalizeHost(host))
+    .filter(Boolean);
+}
+
 /**
  * Validate that a URL does not point to an internal address.
  * Resolves the hostname to check for SSRF.
  */
-async function isSafeExternalUrl(targetUrl) {
+async function isSafeExternalUrl(targetUrl, options = {}) {
   try {
     const { hostname, protocol } = new URL(targetUrl);
+    const normalizedHostname = normalizeHost(hostname);
+    const trustedHosts = new Set(parseTrustedHosts(options.allowInternalHosts));
 
     // Only allow http/https
     if (protocol !== 'http:' && protocol !== 'https:') {
       return false;
+    }
+
+    // Allow explicitly trusted internal hosts for service-to-service communication.
+    if (trustedHosts.has(normalizedHostname)) {
+      return true;
     }
 
     // Resolve hostname to IP
@@ -53,6 +73,9 @@ async function isSafeExternalUrl(targetUrl) {
 
     // Check all resolved IPs
     for (const addr of addresses) {
+      if (trustedHosts.has(normalizeHost(addr))) {
+        continue;
+      }
       if (isInternalIP(addr)) {
         return false;
       }
@@ -64,4 +87,8 @@ async function isSafeExternalUrl(targetUrl) {
   }
 }
 
-module.exports = { isSafeExternalUrl, isInternalIP };
+module.exports = {
+  isSafeExternalUrl,
+  isInternalIP,
+  parseTrustedHosts,
+};

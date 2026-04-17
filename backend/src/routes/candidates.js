@@ -1,6 +1,7 @@
 const express = require('express');
 const User = require('../models/User');
 const Application = require('../models/Application');
+const Job = require('../models/Job');
 const { authenticate, authorize } = require('../middleware/auth');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { escapeRegex } = require('../utils/security');
@@ -19,12 +20,23 @@ router.get('/', authenticate, authorize('recruiter', 'admin'), asyncHandler(asyn
     score_min,
     status,
     jobId,
+    blind,
     search,
     page = 1,
     limit = 20,
     sortBy = 'matchScore',
     order = 'desc',
   } = req.query;
+
+  let recruiterBlindSetting = false;
+  if (req.user.role === 'recruiter') {
+    const recruiterUser = await User.findById(req.user._id).select('settings.recruiter.blindScreeningEnabled');
+    recruiterBlindSetting = !!recruiterUser?.settings?.recruiter?.blindScreeningEnabled;
+  }
+  const blindQueryProvided = blind !== undefined;
+  const isBlindMode = blindQueryProvided
+    ? String(blind).toLowerCase() === 'true'
+    : recruiterBlindSetting;
 
   // Build user query for candidates
   const userQuery = { role: 'candidate' };
@@ -45,6 +57,12 @@ router.get('/', authenticate, authorize('recruiter', 'admin'), asyncHandler(asyn
 
   // If filtering by job, start from applications
   if (jobId) {
+    const job = await Job.findById(jobId).select('recruiterId');
+    if (!job) throw new AppError('Job not found.', 404);
+    if (req.user.role === 'recruiter' && job.recruiterId.toString() !== req.user._id.toString()) {
+      throw new AppError('You can only view candidates for your own jobs.', 403);
+    }
+
     const appQuery = { jobId };
     if (status) appQuery.status = status;
     if (score_min) appQuery.matchScore = { $gte: parseFloat(score_min) };
@@ -65,20 +83,29 @@ router.get('/', authenticate, authorize('recruiter', 'admin'), asyncHandler(asyn
 
     const candidates = applications.map((app) => ({
       _id: app.candidateId?._id,
-      email: app.candidateId?.email,
-      profile: app.candidateId?.profile,
+      email: isBlindMode && !app.isIdentityRevealed ? null : app.candidateId?.email,
+      profile: isBlindMode && !app.isIdentityRevealed ? {
+        firstName: 'Anonymous',
+        lastName: 'Candidate',
+        skills: app.candidateId?.profile?.skills || [],
+        experience: app.candidateId?.profile?.experience || [],
+        education: app.candidateId?.profile?.education || [],
+      } : app.candidateId?.profile,
       application: {
         _id: app._id,
         matchScore: app.matchScore,
         scoreBreakdown: app.scoreBreakdown,
+        aiExplanation: app.aiExplanation,
         status: app.status,
         appliedAt: app.appliedAt,
+        isIdentityRevealed: app.isIdentityRevealed,
       },
       job: app.jobId,
     }));
 
     return res.json({
       candidates,
+      blindMode: isBlindMode,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -126,14 +153,21 @@ router.get('/', authenticate, authorize('recruiter', 'admin'), asyncHandler(asyn
 
   const candidates = users.map((u) => ({
     _id: u._id,
-    email: u.email,
-    profile: u.profile,
+    email: isBlindMode ? null : u.email,
+    profile: isBlindMode ? {
+      firstName: 'Anonymous',
+      lastName: 'Candidate',
+      skills: u.profile?.skills || [],
+      experience: u.profile?.experience || [],
+      education: u.profile?.education || [],
+    } : u.profile,
     applications: appMap[u._id.toString()] || [],
     createdAt: u.createdAt,
   }));
 
   res.json({
     candidates,
+    blindMode: isBlindMode,
     pagination: {
       page: parseInt(page),
       limit: parseInt(limit),

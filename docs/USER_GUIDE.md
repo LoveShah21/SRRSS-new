@@ -70,7 +70,7 @@
 ### Tracking Applications
 
 1. Navigate to "My Applications"
-2. View all submitted applications
+2. View all your applications
 3. Check status for each application:
    - **Applied**: Submission received
    - **Shortlisted**: Under review
@@ -179,7 +179,7 @@
    - Candidate name and job title
    - Date/time and duration
    - Interview type and meeting link
-   - Current status (scheduled, completed, cancelled)
+   - Current status (scheduled, rescheduled, completed, cancelled)
 3. Actions:
    - **Cancel**: Remove a scheduled interview
    - Update notes or reschedule via edit
@@ -187,17 +187,19 @@
 ### Candidate Search & Filter
 
 1. Navigate to **"Candidates"** in the top menu
-2. Use filters to find candidates:
+2. (Optional) Enable **Blind Screening** from recruiter settings to anonymize candidate identity during initial review
+3. Use filters to find candidates:
    - **Job**: Filter by specific job posting
    - **Skills**: Enter skills (comma-separated)
    - **Min Score**: Set minimum match score threshold
    - **Status**: Filter by application status
    - **Search**: Find by candidate name or email
-3. Click **"🔍 Search"** to apply filters
-4. View candidate cards with:
+4. Click **"🔍 Search"** to apply filters
+5. View candidate cards with:
    - Name, email, and skills
    - Match score (color-coded: green ≥70, amber ≥40, red <40)
    - Current application status
+   - AI explanation highlights (matched/missing skills and experience note)
 
 ### Reports & Export
 

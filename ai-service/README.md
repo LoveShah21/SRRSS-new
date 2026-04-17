@@ -41,6 +41,17 @@ source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+### 2.1 Optional: Redis for durable multi-step sessions
+```bash
+docker run -d --name srrss-redis -p 6379:6379 redis:7-alpine
+```
+
+Set:
+```bash
+export REDIS_URL=redis://localhost:6379/0
+export SESSION_TTL_SECONDS=86400
+```
+
 ### 3. Download spaCy model
 ```bash
 python -m spacy download en_core_web_sm
@@ -68,6 +79,11 @@ python demo.py --jd path/to/job_description.txt --resumes cv1.pdf cv2.docx cv3.p
 uvicorn app:app --reload --host 0.0.0.0 --port 8000
 ```
 Open API docs at: **http://localhost:8000/docs**
+
+### Run automated tests
+```bash
+pytest tests/ -v --cov=. --cov-report=term-missing
+```
 
 ---
 

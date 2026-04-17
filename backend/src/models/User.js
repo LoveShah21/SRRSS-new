@@ -50,7 +50,13 @@ const userSchema = new mongoose.Schema({
       years: Number,
       description: String,
     }],
+    projects: [{
+      name: String,
+      techStack: [String],
+      description: String,
+    }],
     resumeUrl: String,
+    resumeKey: String,
     parsedAt: Date,
   },
   isEmailVerified: {
@@ -66,6 +72,14 @@ const userSchema = new mongoose.Schema({
   refreshToken: { type: String, select: false },
   resetPasswordToken: { type: String, select: false },
   resetPasswordExpires: { type: Date, select: false },
+  settings: {
+    recruiter: {
+      blindScreeningEnabled: {
+        type: Boolean,
+        default: false,
+      },
+    },
+  },
 }, {
   timestamps: true,
 });

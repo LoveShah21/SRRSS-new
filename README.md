@@ -63,6 +63,9 @@ cd srrss-antigravity
 
 ### 2. Start with Docker (Recommended)
 ```bash
+cp backend/.env.example backend/.env
+cp ai-service/.env.example ai-service/.env
+cp frontend/.env.example frontend/.env
 docker-compose up -d --build
 ```
 
@@ -84,23 +87,26 @@ npm run dev
 **AI Service:**
 ```bash
 cd ai-service
+cp .env.example .env
 pip install -r requirements.txt
-python -m uvicorn src.main:app --reload
+python -m uvicorn app:app --reload --host 0.0.0.0 --port 8000
 ```
 
 **Frontend:**
 ```bash
 cd frontend
 npm install
+cp .env.example .env
 npm run dev
 ```
 
 ## Documentation
 
-- [Architecture](./ARCHITECTURE.md) - System design and components
-- [API Documentation](./API_DOCS.md) - REST API reference
-- [Deployment Guide](./DEPLOYMENT.md) - Production deployment
-- [User Guide](./USER_GUIDE.md) - End-user documentation
+- [Architecture](./docs/ARCHITECTURE.md) - System design and components
+- [API Documentation](./docs/API_DOCS.md) - REST API reference
+- [Deployment Guide](./docs/DEPLOYMENT.md) - Production deployment
+- [User Guide](./docs/USER_GUIDE.md) - End-user documentation
+- [Readiness Review](./docs/CODEBASE_REVIEW_AND_READINESS.md) - Implementation checklist and status
 
 ## Running Tests
 
@@ -148,10 +154,11 @@ srrss-antigravity/
 │   └── Dockerfile
 ├── .github/workflows/ # CI/CD
 ├── docker-compose.yml # Docker orchestration
-├── ARCHITECTURE.md    # System design
-├── API_DOCS.md        # API reference
-├── DEPLOYMENT.md      # Deploy guide
-└── USER_GUIDE.md      # User manual
+└── docs/
+    ├── ARCHITECTURE.md # System design
+    ├── API_DOCS.md     # API reference
+    ├── DEPLOYMENT.md   # Deploy guide
+    └── USER_GUIDE.md   # User manual
 ```
 
 ## Environment Variables
@@ -161,7 +168,10 @@ srrss-antigravity/
 PORT=5000
 MONGODB_URI=mongodb://localhost:27017/srrss
 JWT_SECRET=your-secret-key
+JWT_REFRESH_SECRET=your-refresh-secret
 AI_SERVICE_URL=http://localhost:8000
+AI_SERVICE_API_KEY=replace-with-shared-ai-service-key
+AI_TRUSTED_INTERNAL_HOSTS=localhost,127.0.0.1,::1,ai-service
 CLIENT_URL=http://localhost:5173
 ```
 
@@ -169,6 +179,11 @@ CLIENT_URL=http://localhost:5173
 ```env
 PORT=8000
 PYTHONUNBUFFERED=1
+AI_SERVICE_API_KEY=replace-with-shared-ai-service-key
+AI_REQUIRE_API_KEY=true
+AI_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:4173
+REDIS_URL=redis://localhost:6379/0
+SESSION_TTL_SECONDS=86400
 ```
 
 ### Frontend (.env)
@@ -195,13 +210,41 @@ VITE_API_URL=http://localhost:5000/api
 ### Applications
 - `POST /api/applications` - Apply to job
 - `GET /api/applications/me` - Get my applications
-- `GET /api/applications/job/:id` - Get job applications
+- `GET /api/applications/job/:jobId` - Get job applications
+- `POST /api/applications/job/:jobId/rank` - Re-rank candidates for a job
+- `POST /api/applications/:id/reveal` - Reveal masked candidate identity (blind mode)
 - `PATCH /api/applications/:id/status` - Update status
 
 ### Resume
 - `POST /api/resume/upload` - Upload resume
+- `GET /api/resume/download` - Generate secure resume download URL
 - `GET /api/resume/profile` - Get parsed profile
 - `PUT /api/resume/profile` - Update profile
+
+### Recruiter
+- `GET /api/recruiter/analytics` - Recruiter analytics
+- `GET /api/recruiter/settings` - Recruiter settings (including blind-screening mode)
+- `PATCH /api/recruiter/settings` - Update recruiter settings
+
+### AI Service
+- `POST /api/parse-resume` - Parse candidate resume
+- `POST /api/score-candidate` - Score a profile against a job
+- `POST /api/detect-bias` - Detect bias in job descriptions
+
+## Demo Flow and Reset
+
+Happy-path validation:
+1. Candidate uploads resume (`POST /api/resume/upload`).
+2. Candidate applies to a job (`POST /api/applications`).
+3. Recruiter ranks candidates (`POST /api/applications/job/:jobId/rank`).
+4. Recruiter schedules interview (`POST /api/interviews`).
+5. Candidate verifies interview entry (`GET /api/interviews`).
+
+Quick reset:
+```bash
+docker-compose down -v
+docker-compose up -d --build
+```
 
 ### Admin
 - `GET /api/admin/users` - List users

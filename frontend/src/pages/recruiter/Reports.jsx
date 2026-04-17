@@ -1,180 +1,198 @@
 import { useState, useEffect } from 'react';
-import { reportsAPI, jobsAPI } from '../../services/api';
+import { recruiterAPI } from '../../services/api';
 
-export default function Reports() {
-  const [report, setReport] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [jobs, setJobs] = useState([]);
-  const [filters, setFilters] = useState({ jobId: '', status: '' });
+const STATUS_LABELS = {
+  applied: 'Applied',
+  shortlisted: 'Shortlisted',
+  interview: 'Interview',
+  hired: 'Hired',
+  rejected: 'Rejected',
+};
+
+export default function RecruiterAnalytics() {
+  const [analytics, setAnalytics] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    async function loadJobs() {
+    async function load() {
       try {
-        const res = await jobsAPI.list({ limit: 100 });
-        setJobs(res.data.jobs || []);
-      } catch { /* ignore */ }
+        const res = await recruiterAPI.analytics();
+        setAnalytics(res.data.analytics || null);
+      } catch (err) {
+        setError(err.response?.data?.error || 'Failed to load analytics.');
+      } finally {
+        setLoading(false);
+      }
     }
-    loadJobs();
+    load();
   }, []);
 
-  const generateReport = async () => {
-    setLoading(true);
-    try {
-      const params = {};
-      if (filters.jobId) params.jobId = filters.jobId;
-      if (filters.status) params.status = filters.status;
-      const res = await reportsAPI.candidates(params);
-      setReport(res.data);
-    } catch (err) {
-      console.error('Report generation failed:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  if (loading) {
+    return <div className="loading-center"><div className="spinner spinner-lg" /></div>;
+  }
 
-  const downloadCSV = async () => {
-    try {
-      const params = {};
-      if (filters.jobId) params.jobId = filters.jobId;
-      if (filters.status) params.status = filters.status;
-      const res = await reportsAPI.downloadCSV(params);
-      const blob = new Blob([res.data], { type: 'text/csv' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `candidate_report_${Date.now()}.csv`;
-      a.click();
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error('CSV download failed:', err);
-    }
-  };
+  if (error) {
+    return (
+      <div className="page">
+        <div className="container">
+          <div className="alert alert-error fade-in">{error}</div>
+        </div>
+      </div>
+    );
+  }
+
+  const jobs = analytics?.jobs || { total: 0, open: 0 };
+  const applications = analytics?.applications || { total: 0, averageScore: 0, byStatus: {}, lastWeek: 0 };
+  const interviews = analytics?.interviews || { scheduled: 0 };
+  const hiring = analytics?.hiring || { totalHired: 0, avgTimeToHire: 0 };
+  const topJobs = analytics?.topJobs || [];
+  const weeklyTrend = analytics?.weeklyTrend || [];
 
   return (
     <div className="page">
       <div className="container">
         <div className="page-header fade-in">
           <h1 className="page-title">
-            Candidate <span className="text-gradient">Reports</span>
+            Recruiter <span className="text-gradient">Analytics</span>
           </h1>
-          <p className="page-subtitle">Generate and export candidate reports</p>
+          <p className="page-subtitle">Track your hiring metrics and performance</p>
         </div>
 
-        {/* Filters */}
-        <div className="card slide-up" style={{ marginBottom: 24 }}>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'end', flexWrap: 'wrap' }}>
-            <div className="form-group" style={{ flex: '1 1 200px' }}>
-              <label className="form-label">Job</label>
-              <select className="form-input" value={filters.jobId} onChange={(e) => setFilters({ ...filters, jobId: e.target.value })}>
-                <option value="">All Jobs</option>
-                {jobs.map(j => <option key={j._id} value={j._id}>{j.title}</option>)}
-              </select>
+        <div className="grid-4" style={{ marginBottom: 24 }}>
+          <div className="stat-card fade-in delay-1">
+            <div className="stat-icon purple">💼</div>
+            <div className="stat-content">
+              <h3>{jobs.total}</h3>
+              <p>Total Jobs</p>
             </div>
-            <div className="form-group" style={{ flex: '1 1 150px' }}>
-              <label className="form-label">Status</label>
-              <select className="form-input" value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })}>
-                <option value="">All</option>
-                <option value="applied">Applied</option>
-                <option value="shortlisted">Shortlisted</option>
-                <option value="interview">Interview</option>
-                <option value="hired">Hired</option>
-                <option value="rejected">Rejected</option>
-              </select>
+          </div>
+          <div className="stat-card fade-in delay-2">
+            <div className="stat-icon green">🟢</div>
+            <div className="stat-content">
+              <h3>{jobs.open}</h3>
+              <p>Open Positions</p>
             </div>
-            <button className="btn btn-primary btn-sm" onClick={generateReport} disabled={loading} style={{ height: 40 }}>
-              {loading ? 'Generating...' : '📊 Generate Report'}
-            </button>
-            {report && (
-              <button className="btn btn-secondary btn-sm" onClick={downloadCSV} style={{ height: 40 }}>
-                📥 Download CSV
-              </button>
-            )}
+          </div>
+          <div className="stat-card fade-in delay-3">
+            <div className="stat-icon cyan">📋</div>
+            <div className="stat-content">
+              <h3>{applications.total}</h3>
+              <p>Total Applications</p>
+            </div>
+          </div>
+          <div className="stat-card fade-in delay-4">
+            <div className="stat-icon amber">📈</div>
+            <div className="stat-content">
+              <h3>{applications.averageScore}%</h3>
+              <p>Avg Match Score</p>
+            </div>
           </div>
         </div>
 
-        {/* Summary */}
-        {report?.summary && (
-          <div className="grid-4 slide-up" style={{ marginBottom: 24 }}>
-            <div className="stat-card">
-              <div className="stat-icon purple">👥</div>
-              <div className="stat-content">
-                <h3>{report.summary.totalCandidates}</h3>
-                <p>Total Candidates</p>
-              </div>
+        <div className="grid-4" style={{ marginBottom: 24 }}>
+          <div className="stat-card fade-in delay-1">
+            <div className="stat-icon green">✅</div>
+            <div className="stat-content">
+              <h3>{hiring.totalHired}</h3>
+              <p>Total Hired</p>
             </div>
-            <div className="stat-card">
-              <div className="stat-icon green">📈</div>
-              <div className="stat-content">
-                <h3>{report.summary.averageScore}%</h3>
-                <p>Avg Match Score</p>
-              </div>
+          </div>
+          <div className="stat-card fade-in delay-2">
+            <div className="stat-icon purple">⏱️</div>
+            <div className="stat-content">
+              <h3>{hiring.avgTimeToHire}d</h3>
+              <p>Avg Time to Hire</p>
             </div>
-            <div className="stat-card">
-              <div className="stat-icon cyan">✅</div>
-              <div className="stat-content">
-                <h3>{report.summary.byStatus?.hired || 0}</h3>
-                <p>Hired</p>
-              </div>
+          </div>
+          <div className="stat-card fade-in delay-3">
+            <div className="stat-icon cyan">📅</div>
+            <div className="stat-content">
+              <h3>{interviews.scheduled}</h3>
+              <p>Interviews Scheduled</p>
             </div>
-            <div className="stat-card">
-              <div className="stat-icon amber">⏳</div>
-              <div className="stat-content">
-                <h3>{report.summary.byStatus?.interview || 0}</h3>
-                <p>In Interview</p>
-              </div>
+          </div>
+          <div className="stat-card fade-in delay-4">
+            <div className="stat-icon amber">📊</div>
+            <div className="stat-content">
+              <h3>{applications.lastWeek}</h3>
+              <p>Applications (7d)</p>
+            </div>
+          </div>
+        </div>
+
+        {Object.keys(applications.byStatus || {}).length > 0 && (
+          <div className="card slide-up" style={{ marginBottom: 24 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>📊 Application Status Breakdown</h2>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              {Object.entries(applications.byStatus).map(([status, count]) => (
+                <div key={status} style={{ padding: '12px 20px', borderRadius: 8, background: 'var(--color-surface)', textAlign: 'center', minWidth: 130 }}>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--color-primary)' }}>{count}</div>
+                  <div style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>{STATUS_LABELS[status] || status}</div>
+                </div>
+              ))}
             </div>
           </div>
         )}
 
-        {/* Report Table */}
-        {report?.report?.length > 0 && (
-          <div className="card slide-up" style={{ overflow: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr style={{ borderBottom: '2px solid var(--color-border)' }}>
-                  <th style={{ padding: '12px 8px', textAlign: 'left' }}>Candidate</th>
-                  <th style={{ padding: '12px 8px', textAlign: 'left' }}>Job</th>
-                  <th style={{ padding: '12px 8px', textAlign: 'center' }}>Match</th>
-                  <th style={{ padding: '12px 8px', textAlign: 'center' }}>Skills</th>
-                  <th style={{ padding: '12px 8px', textAlign: 'center' }}>Exp</th>
-                  <th style={{ padding: '12px 8px', textAlign: 'center' }}>Edu</th>
-                  <th style={{ padding: '12px 8px', textAlign: 'center' }}>Status</th>
-                  <th style={{ padding: '12px 8px', textAlign: 'left' }}>Applied</th>
-                </tr>
-              </thead>
-              <tbody>
-                {report.report.map((row, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                    <td style={{ padding: '10px 8px' }}>
-                      <div style={{ fontWeight: 600 }}>{row.candidateName}</div>
-                      <div style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>{row.candidateEmail}</div>
-                    </td>
-                    <td style={{ padding: '10px 8px' }}>{row.jobTitle}</td>
-                    <td style={{ padding: '10px 8px', textAlign: 'center', fontWeight: 700,
-                      color: row.matchScore >= 70 ? 'var(--color-success)' : row.matchScore >= 40 ? 'var(--color-warning)' : 'var(--color-error)',
-                    }}>{row.matchScore}%</td>
-                    <td style={{ padding: '10px 8px', textAlign: 'center' }}>{row.skillsScore}</td>
-                    <td style={{ padding: '10px 8px', textAlign: 'center' }}>{row.experienceScore}</td>
-                    <td style={{ padding: '10px 8px', textAlign: 'center' }}>{row.educationScore}</td>
-                    <td style={{ padding: '10px 8px', textAlign: 'center' }}>
-                      <span className={`badge ${row.status === 'hired' ? 'badge-success' : row.status === 'rejected' ? 'badge-error' : 'badge-neutral'}`}>
-                        {row.status}
-                      </span>
-                    </td>
-                    <td style={{ padding: '10px 8px', fontSize: 12 }}>{new Date(row.appliedAt).toLocaleDateString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {topJobs.length > 0 && (
+          <div className="card slide-up" style={{ marginBottom: 24 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>🏆 Top Jobs by Applications</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {topJobs.map((job, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: 'var(--color-surface)', borderRadius: 8 }}>
+                  <div>
+                    <div style={{ fontWeight: 600 }}>{job.jobTitle}</div>
+                    <div style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                      Avg Score: {job.averageScore}%
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--color-primary)' }}>
+                    {job.applicantCount}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
-        {report && report.report?.length === 0 && (
+        {weeklyTrend.length > 0 && (
+          <div className="card slide-up">
+            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>📈 Weekly Application Trend</h2>
+            <div style={{ display: 'flex', alignItems: 'end', gap: 8, height: 150 }}>
+              {weeklyTrend.map((day, i) => {
+                const maxCount = Math.max(...weeklyTrend.map((d) => d.count));
+                const height = maxCount > 0 ? (day.count / maxCount) * 120 : 0;
+                return (
+                  <div key={i} style={{ flex: 1, textAlign: 'center' }}>
+                    <div
+                      style={{
+                        height: `${height}px`,
+                        background: 'var(--color-primary)',
+                        borderRadius: '4px 4px 0 0',
+                        minHeight: 4,
+                        transition: 'height 0.3s ease',
+                      }}
+                    />
+                    <div style={{ fontSize: 10, color: 'var(--color-text-secondary)', marginTop: 4 }}>
+                      {day.count}
+                    </div>
+                    <div style={{ fontSize: 9, color: 'var(--color-text-secondary)' }}>
+                      {new Date(day.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {topJobs.length === 0 && weeklyTrend.length === 0 && Object.keys(applications.byStatus || {}).length === 0 && (
           <div className="card">
             <div className="empty-state">
               <div className="icon">📊</div>
-              <h3>No data found</h3>
-              <p>No candidates match the selected filters.</p>
+              <h3>No data yet</h3>
+              <p>Analytics will appear once jobs and applications are available.</p>
             </div>
           </div>
         )}

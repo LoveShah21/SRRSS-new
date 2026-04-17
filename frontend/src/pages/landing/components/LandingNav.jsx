@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Menu, X } from './icons';
 import { useAuth } from '../../../context/AuthContext';
 
@@ -9,6 +10,7 @@ export default function LandingNav() {
   const links = [
     { label: 'Features', href: '#features' },
     { label: 'How It Works', href: '#how-it-works' },
+    { label: 'For Recruiters', href: '#persona-tabs' },
     { label: 'Pricing', href: '#pricing' },
     { label: 'Security', href: '#security' },
   ];
@@ -21,14 +23,14 @@ export default function LandingNav() {
         aria-label="Main navigation"
       >
         {/* Logo */}
-        <a href="#" className="flex items-center gap-2 cursor-pointer" aria-label="SRRSS Home">
+        <Link to="/" className="flex items-center gap-2 cursor-pointer" aria-label="SRRSS Home">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary-500 to-accent-400 flex items-center justify-center">
             <span className="text-white font-heading font-bold text-sm">SR</span>
           </div>
           <span className="font-heading font-bold text-lg text-white tracking-tight">
             SRRSS
           </span>
-        </a>
+        </Link>
 
         {/* Desktop Links */}
         <div className="hidden md:flex items-center gap-1">
@@ -46,26 +48,26 @@ export default function LandingNav() {
         {/* Desktop CTAs */}
         <div className="hidden md:flex items-center gap-3">
           {isAuthenticated ? (
-            <a
-              href="/dashboard"
+            <Link
+              to="/dashboard"
               className="px-4 py-2 text-sm font-medium text-surface-300 hover:text-white transition-colors duration-200 cursor-pointer"
             >
               Dashboard
-            </a>
+            </Link>
           ) : (
-            <a
-              href="/login"
+            <Link
+              to="/login"
               className="px-4 py-2 text-sm font-medium text-surface-300 hover:text-white transition-colors duration-200 cursor-pointer"
             >
               Log In
-            </a>
+            </Link>
           )}
-          <a
-            href="#pricing"
+          <Link
+            to={isAuthenticated ? '/dashboard' : '/register'}
             className="px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-500 hover:to-primary-400 rounded-xl shadow-sm shadow-primary-500/20 hover:shadow-md hover:shadow-primary-500/30 transition-all duration-200 cursor-pointer"
           >
-            Book a Demo
-          </a>
+            {isAuthenticated ? 'Open Workspace' : 'Get Started Free'}
+          </Link>
         </div>
 
         {/* Mobile Menu Button */}
@@ -94,26 +96,29 @@ export default function LandingNav() {
           ))}
           <hr className="my-2 border-surface-700" />
           {isAuthenticated ? (
-            <a
-              href="/dashboard"
+            <Link
+              to="/dashboard"
+              onClick={() => setOpen(false)}
               className="px-4 py-3 text-sm font-medium text-surface-300 text-center rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
             >
               Dashboard
-            </a>
+            </Link>
           ) : (
-            <a
-              href="/login"
+            <Link
+              to="/login"
+              onClick={() => setOpen(false)}
               className="px-4 py-3 text-sm font-medium text-surface-300 text-center rounded-xl hover:bg-white/5 transition-colors cursor-pointer"
             >
               Log In
-            </a>
+            </Link>
           )}
-          <a
-            href="#pricing"
+          <Link
+            to={isAuthenticated ? '/dashboard' : '/register'}
+            onClick={() => setOpen(false)}
             className="px-4 py-3 text-sm font-semibold text-white text-center bg-gradient-to-r from-primary-600 to-primary-500 rounded-xl cursor-pointer"
           >
-            Book a Demo
-          </a>
+            {isAuthenticated ? 'Open Workspace' : 'Get Started Free'}
+          </Link>
         </div>
       )}
     </header>

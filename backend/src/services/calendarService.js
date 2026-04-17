@@ -84,6 +84,22 @@ async function createEvent({ summary, start, durationMinutes, description, locat
   if (recruiterEmail) event.attendees.push({ email: recruiterEmail });
 
   try {
+    // Conflict Detection: Check if the event overlaps with existing events in the calendar
+    const freebusy = await cal.freebusy.query({
+      requestBody: {
+        timeMin: start.toISOString(),
+        timeMax: end.toISOString(),
+        items: [{ id: cal._calendarId }],
+      },
+    });
+
+    const busySlots = freebusy.data.calendars[0].busy;
+    if (busySlots && busySlots.length > 0) {
+      logger.warn(`Calendar conflict detected for ${summary}. Slot is already taken.`);
+      // Depending on business logic, we could return a conflict error or proceed
+      // For this project, we'll log it and let the recruiter decide.
+    }
+
     const res = await cal.events.insert({
       calendarId: cal._calendarId,
       resource: event,

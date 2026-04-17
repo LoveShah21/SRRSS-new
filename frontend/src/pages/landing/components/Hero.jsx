@@ -1,4 +1,5 @@
 import { ArrowRight, ChevronRight, Sparkles, Clock, TrendingUp } from './icons';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 
 export default function Hero() {
@@ -40,13 +41,13 @@ export default function Hero() {
             {/* CTAs */}
             <div className="flex flex-col sm:flex-row gap-3">
               {isAuthenticated ? (
-                <a
-                  href="/dashboard"
+                <Link
+                  to="/dashboard"
                   className="inline-flex items-center justify-center gap-2 px-7 py-3.5 text-base font-semibold text-white bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-500 hover:to-primary-400 rounded-xl shadow-lg shadow-primary-600/25 hover:shadow-xl hover:shadow-primary-500/30 transition-all duration-200 cursor-pointer"
                 >
                   Go to Dashboard
                   <ArrowRight className="w-4 h-4" />
-                </a>
+                </Link>
               ) : (
                 <>
                   <a
@@ -56,13 +57,13 @@ export default function Hero() {
                     Book a Live Demo
                     <ArrowRight className="w-4 h-4" />
                   </a>
-                  <a
-                    href="/register"
+                  <Link
+                    to="/register"
                     className="inline-flex items-center justify-center gap-2 px-7 py-3.5 text-base font-semibold text-surface-200 bg-white/5 border border-surface-600 hover:border-primary-500/50 hover:text-white hover:bg-white/10 rounded-xl transition-all duration-200 cursor-pointer"
                   >
                     See Candidate Experience
                     <ChevronRight className="w-4 h-4" />
-                  </a>
+                  </Link>
                 </>
               )}
             </div>

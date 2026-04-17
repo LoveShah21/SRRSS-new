@@ -59,6 +59,7 @@ router.get('/candidates', authenticate, authorize('recruiter', 'admin'), asyncHa
   const totalPages = Math.ceil(total / maxLimit);
 
   const reportData = applications.map((app) => ({
+    candidateId: app.candidateId?._id?.toString() || '',
     candidateName: `${app.candidateId?.profile?.firstName || ''} ${app.candidateId?.profile?.lastName || ''}`.trim(),
     candidateEmail: app.candidateId?.email || '',
     skills: (app.candidateId?.profile?.skills || []).join(', '),
@@ -168,6 +169,101 @@ router.get('/candidates/:id', authenticate, authorize('recruiter', 'admin'), asy
       type: iv.type,
       feedback: iv.feedback,
     })),
+    generatedAt: new Date().toISOString(),
+  });
+}));
+
+/**
+ * GET /api/reports/bi-metrics — Business Intelligence metrics for Admin Dashboard
+ * Calculates Time-to-Hire, Source Quality, and Conversion Rates.
+ */
+router.get('/bi-metrics', authenticate, authorize('admin'), asyncHandler(async (req, res) => {
+  // 1. Time-to-Hire: Average time from 'applied' to 'hired'
+  const timeToHireData = await Application.aggregate([
+    {
+      $match: { status: 'hired' }
+    },
+    {
+      $project: {
+        duration: {
+          $divide: [
+            { $subtract: ['$updatedAt', '$appliedAt'] },
+            1000 * 60 * 60 * 24 // Convert ms to days
+          ]
+        }
+      }
+    },
+    {
+      $group: {
+        _id: null,
+        avgDays: { $avg: '$duration' }
+      }
+    }
+  ]);
+
+  // 2. Source Quality: Match Score distribution per job
+  const sourceQuality = await Application.aggregate([
+    {
+      $group: {
+        _id: '$jobId',
+        avgScore: { $avg: '$matchScore' },
+        candidateCount: { $sum: 1 }
+      }
+    },
+    {
+      $lookup: {
+        from: 'jobs',
+        localField: '_id',
+        foreignField: '_id',
+        as: 'job'
+      }
+    },
+    { $unwind: '$job' },
+    {
+      $project: {
+        jobTitle: '$job.title',
+        avgScore: { $round: ['$avgScore', 1] },
+        candidateCount: 1
+      }
+    },
+    { $sort: { avgScore: -1 } }
+  ]);
+
+  // 3. Conversion Rate: Applied -> Shortlisted -> Hired
+  const conversionData = await Application.aggregate([
+    {
+      $facet: {
+        applied: [{ $match: {} }, { $count: 'count' }],
+        shortlisted: [{ $match: { status: 'shortlisted' } }, { $count: 'count' }],
+        hired: [{ $match: { status: 'hired' } }, { $count: 'count' }]
+      }
+    }
+  ]);
+
+  const counts = {
+    applied: conversionData[0].applied[0]?.count || 0,
+    shortlisted: conversionData[0].shortlisted[0]?.count || 0,
+    hired: conversionData[0].hired[0]?.count || 0,
+  };
+
+  const conversionRates = {
+    appliedToShortlisted: counts.applied > 0 ? (counts.shortlisted / counts.applied) * 100 : 0,
+    shortlistedToHired: counts.shortlisted > 0 ? (counts.hired / counts.shortlisted) * 100 : 0,
+    overallConversion: counts.applied > 0 ? (counts.hired / counts.applied) * 100 : 0,
+  };
+
+  res.json({
+    metrics: {
+      timeToHire: {
+        averageDays: Math.round(timeToHireData[0]?.avgDays || 0),
+        unit: 'days'
+      },
+      sourceQuality,
+      conversion: {
+        counts,
+        rates: conversionRates
+      }
+    },
     generatedAt: new Date().toISOString(),
   });
 }));

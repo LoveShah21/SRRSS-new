@@ -23,6 +23,21 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
+    const requestUrl = originalRequest?.url || '';
+    const isAuthBootstrapRequest = [
+      '/auth/me',
+      '/auth/login',
+      '/auth/register',
+      '/auth/verify',
+      '/auth/resend-verification',
+    ].some((path) => requestUrl.includes(path));
+    const isPublicPath = ['/', '/login', '/register'].includes(window.location.pathname)
+      || window.location.pathname.startsWith('/verify-email/');
+
+    // Public/auth bootstrap requests should not force browser redirect.
+    if (error.response?.status === 401 && isAuthBootstrapRequest) {
+      return Promise.reject(error);
+    }
 
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
@@ -38,7 +53,9 @@ api.interceptors.response.use(
           });
           onTokenRefreshed();
         } catch {
-          window.location.href = '/login';
+          if (!isPublicPath) {
+            window.location.href = '/login';
+          }
           return Promise.reject(error);
         } finally {
           isRefreshing = false;
@@ -70,7 +87,9 @@ export const authAPI = {
 // ─── Jobs ────────────────────────────────────────────
 export const jobsAPI = {
   list: (params) => api.get('/jobs', { params }),
+  getAll: (params) => api.get('/jobs', { params }),
   get: (id) => api.get(`/jobs/${id}`),
+  getById: (id) => api.get(`/jobs/${id}`),
   create: (data) => api.post('/jobs', data),
   update: (id, data) => api.put(`/jobs/${id}`, data),
   delete: (id) => api.delete(`/jobs/${id}`),
@@ -80,16 +99,21 @@ export const jobsAPI = {
 export const applicationsAPI = {
   apply: (data) => api.post('/applications', data),
   myApplications: () => api.get('/applications/me'),
+  getMyApplications: () => api.get('/applications/me'),
   forJob: (jobId, params) => api.get(`/applications/job/${jobId}`, { params }),
+  rank: (jobId) => api.post(`/applications/job/${jobId}/rank`),
+  reveal: (id) => api.post(`/applications/${id}/reveal`),
   updateStatus: (id, data) => api.patch(`/applications/${id}/status`, data),
   scheduleInterview: (id, data) => api.patch(`/applications/${id}/interview`, data),
 };
 
 // ─── Resume / Profile ────────────────────────────────
 export const resumeAPI = {
-  upload: (formData) => api.post('/resume/upload', formData, {
+  upload: (formData, config = {}) => api.post('/resume/upload', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
+    ...config,
   }),
+  download: () => api.get('/resume/download'),
   getProfile: () => api.get('/resume/profile'),
   updateProfile: (data) => api.patch('/resume/profile', data),
 };
@@ -122,6 +146,8 @@ export const reportsAPI = {
 // ─── Admin ───────────────────────────────────────────
 export const adminAPI = {
   analytics: () => api.get('/admin/analytics'),
+  dashboard: () => api.get('/reports/overview'),
+  getBiMetrics: () => api.get('/reports/bi-metrics'),
   users: (params) => api.get('/admin/users', { params }),
   updateRole: (id, data) => api.patch(`/admin/users/${id}/role`, data),
   deleteUser: (id) => api.delete(`/admin/users/${id}`),
@@ -130,6 +156,8 @@ export const adminAPI = {
 // ─── Recruiter Analytics ─────────────────────────────
 export const recruiterAPI = {
   analytics: () => api.get('/recruiter/analytics'),
+  getSettings: () => api.get('/recruiter/settings'),
+  updateSettings: (data) => api.patch('/recruiter/settings', data),
 };
 
 // ─── Audit Logs ──────────────────────────────────────

@@ -10,13 +10,11 @@ import SecuritySection from './components/SecuritySection';
 import PricingSection from './components/PricingSection';
 import CtaBanner from './components/CtaBanner';
 import Footer from './components/Footer';
-import { useAuth } from '../../context/AuthContext';
 
 export default function LandingPage() {
-  const { isAuthenticated } = useAuth();
   return (
     <div className="min-h-screen bg-surface-950 text-surface-50 font-body antialiased">
-      {!isAuthenticated && <LandingNav />}
+      <LandingNav />
       <main>
         <Hero />
         <SocialProof />

@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext';
 export default function Navbar() {
   const { user, logout, isAdmin, isCandidate, isRecruiter } = useAuth();
   const navigate = useNavigate();
+  const firstName = user?.profile?.firstName || user?.firstName || '';
+  const lastName = user?.profile?.lastName || user?.lastName || '';
 
   const handleLogout = () => {
     logout();
@@ -11,7 +13,7 @@ export default function Navbar() {
   };
 
   const initials = user
-    ? `${user.firstName?.[0] || ''}${user.lastName?.[0] || ''}`.toUpperCase()
+    ? `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase()
     : '??';
 
   return (
@@ -57,9 +59,6 @@ export default function Navbar() {
             <NavLink to="/recruiter/analytics" className={({ isActive }) => `topbar-link ${isActive ? 'active' : ''}`}>
               Analytics
             </NavLink>
-            <NavLink to="/recruiter/analytics" className={({ isActive }) => `topbar-link ${isActive ? 'active' : ''}`}>
-              Analytics
-            </NavLink>
           </>
         )}
         {isAdmin && (
@@ -76,7 +75,7 @@ export default function Navbar() {
 
       <div className="topbar-user">
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>{user?.firstName} {user?.lastName}</div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{firstName} {lastName}</div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', textTransform: 'capitalize' }}>{user?.role}</div>
         </div>
         <div className="avatar">{initials}</div>
