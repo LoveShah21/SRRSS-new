@@ -100,6 +100,7 @@ export const applicationsAPI = {
   apply: (data) => api.post('/applications', data),
   myApplications: () => api.get('/applications/me'),
   getMyApplications: () => api.get('/applications/me'),
+  getById: (id) => api.get(`/applications/${id}`),
   forJob: (jobId, params) => api.get(`/applications/job/${jobId}`, { params }),
   rank: (jobId) => api.post(`/applications/job/${jobId}/rank`),
   reveal: (id) => api.post(`/applications/${id}/reveal`),

@@ -54,6 +54,14 @@ export function AuthProvider({ children }) {
   const register = useCallback(async (data) => {
     const res = await authAPI.register(data);
     const normalizedUser = normalizeUser(res.data.user);
+    if (res.data.requiresEmailVerification) {
+      localStorage.removeItem('srrss_user');
+      setUser(null);
+      return {
+        verificationRequired: true,
+        email: normalizedUser?.email || data.email,
+      };
+    }
     localStorage.setItem('srrss_user', JSON.stringify(normalizedUser));
     setUser(normalizedUser);
     return normalizedUser;

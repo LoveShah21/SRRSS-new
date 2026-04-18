@@ -75,17 +75,24 @@ router.get('/analytics', authenticate, authorize('admin'), asyncHandler(async (r
     totalUsers,
     totalCandidates,
     totalRecruiters,
+    totalAdmins,
     totalJobs,
     openJobs,
+    jobStatusBreakdown,
     totalApplications,
     statusBreakdown,
     recentApplications,
+    signupTrend,
   ] = await Promise.all([
     User.countDocuments(),
     User.countDocuments({ role: 'candidate' }),
     User.countDocuments({ role: 'recruiter' }),
+    User.countDocuments({ role: 'admin' }),
     Job.countDocuments(),
     Job.countDocuments({ status: 'open' }),
+    Job.aggregate([
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+    ]),
     Application.countDocuments(),
     Application.aggregate([
       { $group: { _id: '$status', count: { $sum: 1 } } },
@@ -93,15 +100,38 @@ router.get('/analytics', authenticate, authorize('admin'), asyncHandler(async (r
     Application.countDocuments({
       appliedAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
     }),
+    User.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) },
+        },
+      },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+      { $limit: 30 },
+    ]),
   ]);
 
   const statusMap = {};
   statusBreakdown.forEach((s) => { statusMap[s._id] = s.count; });
+  const jobStatusMap = {};
+  jobStatusBreakdown.forEach((s) => { jobStatusMap[s._id] = s.count; });
 
   res.json({
     analytics: {
-      users: { total: totalUsers, candidates: totalCandidates, recruiters: totalRecruiters },
-      jobs: { total: totalJobs, open: openJobs },
+      users: {
+        total: totalUsers,
+        candidates: totalCandidates,
+        recruiters: totalRecruiters,
+        admins: totalAdmins,
+        signupsTrend: signupTrend.map((point) => ({ date: point._id, count: point.count })),
+      },
+      jobs: { total: totalJobs, open: openJobs, byStatus: jobStatusMap },
       applications: {
         total: totalApplications,
         lastWeek: recentApplications,

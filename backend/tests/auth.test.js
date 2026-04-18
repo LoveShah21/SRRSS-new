@@ -21,11 +21,12 @@ describe('Auth Routes', () => {
       });
 
       expect(res.status).toBe(201);
-      expect(res.body.message).toBe('Registration successful.');
-      expect(res.body.token).toBeDefined();
-      expect(res.body.refreshToken).toBeDefined();
+      expect(res.body.message).toMatch(/registration successful/i);
+      expect(res.body.token).toBeUndefined();
+      expect(res.body.refreshToken).toBeUndefined();
       expect(res.body.user.email).toBe('alice@example.com');
       expect(res.body.user.role).toBe('candidate');
+      expect(res.body.requiresEmailVerification).toBe(true);
     });
 
     it('should register a recruiter', async () => {
@@ -91,6 +92,10 @@ describe('Auth Routes', () => {
         firstName: 'Login',
         lastName: 'User',
       });
+
+      const User = require('../src/models/User');
+      const user = await User.findOne({ email: 'login@example.com' });
+      await request.get(`/api/auth/verify/${user.emailVerificationToken}`);
     });
 
     it('should login with valid credentials', async () => {
@@ -127,6 +132,23 @@ describe('Auth Routes', () => {
     it('should reject missing fields', async () => {
       const res = await request.post('/api/auth/login').send({});
       expect(res.status).toBe(400);
+    });
+
+    it('should reject login for unverified email', async () => {
+      await request.post('/api/auth/register').send({
+        email: 'unverified-login@example.com',
+        password: 'StrongPass1!',
+        firstName: 'Unverified',
+        lastName: 'User',
+      });
+
+      const res = await request.post('/api/auth/login').send({
+        email: 'unverified-login@example.com',
+        password: 'StrongPass1!',
+      });
+
+      expect(res.status).toBe(403);
+      expect(res.body.error).toMatch(/verify your email/i);
     });
   });
 
@@ -199,6 +221,57 @@ describe('Auth Routes', () => {
         .get('/api/auth/me')
         .set('Authorization', 'Bearer invalid.token.here');
       expect(res.status).toBe(401);
+    });
+  });
+
+  describe('Email verification lifecycle', () => {
+    it('should resend verification and rotate token for unverified user', async () => {
+      const email = `verify-${Date.now()}@example.com`;
+      await request.post('/api/auth/register').send({
+        email,
+        password: 'StrongPass1!',
+        firstName: 'Verify',
+        lastName: 'Flow',
+      });
+
+      const User = require('../src/models/User');
+      const userBefore = await User.findOne({ email });
+      const previousToken = userBefore.emailVerificationToken;
+
+      const resendRes = await request.post('/api/auth/resend-verification').send({ email });
+
+      expect(resendRes.status).toBe(200);
+      expect(resendRes.body.message).toMatch(/if that email exists/i);
+
+      const userAfter = await User.findOne({ email });
+      expect(userAfter.emailVerificationToken).toBeDefined();
+      expect(userAfter.emailVerificationToken).not.toBe(previousToken);
+      expect(userAfter.emailVerificationExpires).toBeDefined();
+    });
+
+    it('should verify email token and allow login afterwards', async () => {
+      const email = `verify-login-${Date.now()}@example.com`;
+      await request.post('/api/auth/register').send({
+        email,
+        password: 'StrongPass1!',
+        firstName: 'Verify',
+        lastName: 'Login',
+      });
+
+      const User = require('../src/models/User');
+      const userBefore = await User.findOne({ email });
+      const verifyRes = await request.get(`/api/auth/verify/${userBefore.emailVerificationToken}`);
+
+      expect(verifyRes.status).toBe(200);
+      expect(verifyRes.body.message).toMatch(/email verified successfully/i);
+
+      const loginRes = await request.post('/api/auth/login').send({
+        email,
+        password: 'StrongPass1!',
+      });
+
+      expect(loginRes.status).toBe(200);
+      expect(loginRes.body.token).toBeDefined();
     });
   });
 });

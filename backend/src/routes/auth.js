@@ -54,24 +54,26 @@ router.post('/register', asyncHandler(async (req, res) => {
     profile: { firstName, lastName },
   });
 
-  const accessToken = generateAccessToken(user._id);
-  const refreshToken = generateRefreshToken(user._id);
+  const verificationToken = crypto.randomBytes(32).toString('hex');
+  const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
 
-  // Save refresh token
-  user.refreshToken = refreshToken;
+  user.emailVerificationToken = verificationToken;
+  user.emailVerificationExpires = verificationExpires;
   await user.save({ validateBeforeSave: false });
 
-  res.cookie('srrss_access_token', accessToken, {
-    ...cookieOptions,
-    maxAge: 15 * 60 * 1000, // 15 minutes
+  const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email/${verificationToken}`;
+  const deliveryResult = await sendEmailVerification({
+    to: user.email,
+    firstName: user.profile?.firstName || 'User',
+    verificationUrl,
   });
-  res.cookie('srrss_refresh_token', refreshToken, cookieOptions);
 
   res.status(201).json({
-    message: 'Registration successful.',
+    message: deliveryResult?.sent
+      ? 'Registration successful. Please verify your email before logging in.'
+      : 'Registration successful. Verification email could not be delivered right now. Please use resend verification.',
     user,
-    token: accessToken,
-    refreshToken,
+    requiresEmailVerification: true,
   });
 }));
 
@@ -96,6 +98,10 @@ router.post('/login', asyncHandler(async (req, res) => {
       req,
     });
     throw new AppError('Invalid email or password.', 401);
+  }
+
+  if (!user.isEmailVerified) {
+    throw new AppError('Please verify your email before logging in.', 403);
   }
 
   const accessToken = generateAccessToken(user._id);

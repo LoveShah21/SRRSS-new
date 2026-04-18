@@ -136,6 +136,38 @@ describe('Applications Routes', () => {
     });
   });
 
+  describe('GET /api/applications/:id', () => {
+    let applicationId;
+
+    beforeEach(async () => {
+      const applyRes = await request
+        .post('/api/applications')
+        .set('Authorization', `Bearer ${candidateToken}`)
+        .send({ jobId });
+      applicationId = applyRes.body.application._id;
+    });
+
+    it('should allow recruiter owner to fetch application detail', async () => {
+      const res = await request
+        .get(`/api/applications/${applicationId}`)
+        .set('Authorization', `Bearer ${recruiterToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.application._id).toBe(applicationId);
+      expect(res.body.application.jobId).toBeDefined();
+      expect(res.body.application.candidateId).toBeDefined();
+    });
+
+    it('should allow candidate owner to fetch application detail', async () => {
+      const res = await request
+        .get(`/api/applications/${applicationId}`)
+        .set('Authorization', `Bearer ${candidateToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.application._id).toBe(applicationId);
+    });
+  });
+
   // ── STATUS TRANSITIONS ────────────────────────────────
   describe('PATCH /api/applications/:id/status', () => {
     let applicationId;

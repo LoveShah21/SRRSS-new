@@ -28,6 +28,7 @@ describe('Reports API', () => {
       expect(Array.isArray(res.body.report)).toBe(true);
       expect(res.body.summary).toBeDefined();
       expect(res.body.summary.totalCandidates).toBeGreaterThanOrEqual(1);
+      expect(Array.isArray(res.body.summary.weeklyTrend)).toBe(true);
     });
 
     it('should filter report by job', async () => {

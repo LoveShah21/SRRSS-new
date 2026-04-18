@@ -3,6 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { jobsAPI, applicationsAPI } from '../services/api';
 
+function statusBadgeClass(status) {
+  if (status === 'shortlisted' || status === 'hired') return 'badge-success';
+  if (status === 'rejected') return 'badge-danger';
+  if (status === 'interview') return 'badge-info';
+  return 'badge-warning';
+}
+
 export default function JobDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -10,39 +17,63 @@ export default function JobDetail() {
 
   const [job, setJob] = useState(null);
   const [applications, setApplications] = useState([]);
+  const [currentApplication, setCurrentApplication] = useState(null);
+  const [selectedApplication, setSelectedApplication] = useState(null);
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState(false);
-  const [applied, setApplied] = useState(false);
   const [error, setError] = useState('');
+  const [applicationsError, setApplicationsError] = useState('');
 
   useEffect(() => {
     async function load() {
+      setLoading(true);
+      setError('');
+      setApplicationsError('');
+
       try {
         const res = await jobsAPI.get(id);
         setJob(res.data.job || res.data);
 
+        if (isCandidate) {
+          const myAppsRes = await applicationsAPI.myApplications();
+          const myApps = myAppsRes.data.applications || myAppsRes.data || [];
+          const existing = myApps.find((app) => String(app.jobId?._id || app.jobId) === String(id));
+          setCurrentApplication(existing || null);
+        }
+
         if (isRecruiter || isAdmin) {
           try {
             const appsRes = await applicationsAPI.forJob(id);
-            setApplications(appsRes.data.applications || appsRes.data || []);
-          } catch (_) {}
+            const apps = appsRes.data.applications || appsRes.data || [];
+            setApplications(apps);
+            setSelectedApplication((prev) => {
+              if (!prev) return null;
+              return apps.find((a) => a._id === prev._id) || null;
+            });
+          } catch (appErr) {
+            setApplicationsError(appErr.response?.data?.error || 'Failed to load applications for this job.');
+            setApplications([]);
+          }
         }
       } catch (err) {
-        console.error(err);
+        setError(err.response?.data?.error || 'Failed to load job details.');
       } finally {
         setLoading(false);
       }
     }
     load();
-  }, [id, isRecruiter, isAdmin]);
+  }, [id, isCandidate, isRecruiter, isAdmin]);
 
   const handleApply = async (e) => {
     e.preventDefault();
+    if (currentApplication) return;
+
     setApplying(true);
     setError('');
     try {
-      await applicationsAPI.apply({ jobId: id });
-      setApplied(true);
+      const res = await applicationsAPI.apply({ jobId: id });
+      const created = res.data.application || null;
+      setCurrentApplication(created);
     } catch (err) {
       setError(err.response?.data?.error || err.response?.data?.message || 'Application failed');
     } finally {
@@ -52,20 +83,29 @@ export default function JobDetail() {
 
   const handleStatusChange = async (appId, status) => {
     try {
-      await applicationsAPI.updateStatus(appId, { status });
-      setApplications(prev => prev.map(a => a._id === appId ? { ...a, status } : a));
+      const res = await applicationsAPI.updateStatus(appId, { status });
+      const updated = res.data.application || null;
+      setApplications((prev) => prev.map((a) => (a._id === appId ? { ...a, ...updated } : a)));
+      setSelectedApplication((prev) => (prev?._id === appId ? { ...prev, ...updated } : prev));
     } catch (err) {
-      console.error(err);
+      setApplicationsError(err.response?.data?.error || 'Failed to update application status.');
     }
   };
 
   const handleRank = async () => {
+    setApplicationsError('');
     try {
       const res = await applicationsAPI.rank(id);
       const ranked = res.data.rankedApplications || res.data || [];
-      if (ranked.length) setApplications(ranked);
+      if (ranked.length) {
+        setApplications(ranked);
+        setSelectedApplication((prev) => {
+          if (!prev) return null;
+          return ranked.find((a) => a._id === prev._id) || null;
+        });
+      }
     } catch (err) {
-      console.error(err);
+      setApplicationsError(err.response?.data?.error || 'Failed to rank applications.');
     }
   };
 
@@ -101,6 +141,9 @@ export default function JobDetail() {
           ← Back to Jobs
         </button>
 
+        {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+        {applicationsError && <div className="alert alert-error" style={{ marginBottom: 16 }}>{applicationsError}</div>}
+
         <div className="card fade-in" style={{ marginBottom: 24 }}>
           <div className="flex items-center justify-between" style={{ marginBottom: 16 }}>
             <div>
@@ -133,7 +176,7 @@ export default function JobDetail() {
                 Required Skills
               </h3>
               <div className="tag-list">
-                {job.requiredSkills.map(skill => <span key={skill} className="tag">{skill}</span>)}
+                {job.requiredSkills.map((skill) => <span key={skill} className="tag">{skill}</span>)}
               </div>
             </>
           )}
@@ -155,12 +198,32 @@ export default function JobDetail() {
           )}
         </div>
 
-        {/* Apply Section for Candidates */}
-        {isCandidate && job.status === 'open' && !applied && (
+        {isCandidate && job.status !== 'open' && (
+          <div className="alert alert-warning" style={{ marginBottom: 24 }}>
+            This job is currently closed for new applications.
+          </div>
+        )}
+
+        {isCandidate && currentApplication && (
+          <div className="card slide-up" style={{ animationDelay: '0.2s', marginBottom: 24 }}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 12 }}>Your Application Status</h2>
+            <div className="flex items-center gap-md" style={{ marginBottom: 8 }}>
+              <span className={`badge ${statusBadgeClass(currentApplication.status)}`}>{currentApplication.status}</span>
+              <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                Applied on {new Date(currentApplication.appliedAt || currentApplication.createdAt).toLocaleDateString()}
+              </span>
+            </div>
+            {currentApplication.statusHistory?.length > 0 && (
+              <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                Latest update: {new Date(currentApplication.statusHistory[currentApplication.statusHistory.length - 1].changedAt).toLocaleString()}
+              </div>
+            )}
+          </div>
+        )}
+
+        {isCandidate && job.status === 'open' && !currentApplication && (
           <div className="card slide-up" style={{ animationDelay: '0.2s' }}>
             <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 16 }}>Apply for this Position</h2>
-
-            {error && <div className="alert alert-error">{error}</div>}
 
             <div style={{ marginBottom: 16, padding: 16, background: 'var(--color-surface)', borderRadius: 8, fontSize: 14 }}>
               <p style={{ fontWeight: 600, marginBottom: 4 }}>📄 Resume Required</p>
@@ -185,13 +248,6 @@ export default function JobDetail() {
           </div>
         )}
 
-        {applied && (
-          <div className="alert alert-success" style={{ fontSize: 16 }}>
-            ✅ Application submitted successfully! You'll be notified about updates.
-          </div>
-        )}
-
-        {/* Applications table for Recruiters/Admin */}
         {(isRecruiter || isAdmin) && (
           <div className="card slide-up" style={{ animationDelay: '0.2s' }}>
             <div className="flex items-center justify-between" style={{ marginBottom: 20 }}>
@@ -222,7 +278,7 @@ export default function JobDetail() {
                     </tr>
                   </thead>
                   <tbody>
-                    {applications.map(app => (
+                    {applications.map((app) => (
                       <tr key={app._id}>
                         <td>
                           <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
@@ -233,21 +289,16 @@ export default function JobDetail() {
                           </div>
                         </td>
                         <td>
-                           {app.matchScore != null ? (
-                             <div className={`score-circle ${scoreClass(app.matchScore)}`}>
-                               {Math.round(app.matchScore)}
-                             </div>
-                           ) : (
-                             <span style={{ color: 'var(--text-muted)' }}>—</span>
+                          {app.matchScore != null ? (
+                            <div className={`score-circle ${scoreClass(app.matchScore)}`}>
+                              {Math.round(app.matchScore)}
+                            </div>
+                          ) : (
+                            <span style={{ color: 'var(--text-muted)' }}>—</span>
                           )}
                         </td>
                         <td>
-                          <span className={`badge ${
-                            app.status === 'shortlisted' ? 'badge-success' :
-                            app.status === 'rejected' ? 'badge-danger' :
-                            app.status === 'interview' ? 'badge-info' :
-                            'badge-warning'
-                          }`}>
+                          <span className={`badge ${statusBadgeClass(app.status)}`}>
                             {app.status}
                           </span>
                         </td>
@@ -255,19 +306,79 @@ export default function JobDetail() {
                           {new Date(app.appliedAt || app.createdAt).toLocaleDateString()}
                         </td>
                         <td>
-                          <div className="flex gap-sm">
+                          <div className="flex gap-sm" style={{ flexWrap: 'wrap' }}>
+                            <button className="btn btn-sm btn-secondary" onClick={() => setSelectedApplication(app)}>
+                              Review
+                            </button>
                             <button className="btn btn-sm btn-secondary" onClick={() => handleStatusChange(app._id, 'shortlisted')}>
                               Shortlist
                             </button>
                             <button className="btn btn-sm btn-ghost" onClick={() => handleStatusChange(app._id, 'rejected')}>
                               Reject
                             </button>
+                            {(app.status === 'shortlisted' || app.status === 'interview') && (
+                              <button
+                                className="btn btn-sm btn-primary"
+                                onClick={() => navigate(`/interviews?applicationId=${app._id}`)}
+                              >
+                                Schedule
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {selectedApplication && (
+              <div className="card" style={{ marginTop: 20, padding: 16, background: 'var(--color-surface)' }}>
+                <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
+                  <h3 style={{ fontSize: 18, fontWeight: 700 }}>
+                    Candidate Review — {selectedApplication.candidateId?.profile?.firstName} {selectedApplication.candidateId?.profile?.lastName}
+                  </h3>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setSelectedApplication(null)}>
+                    Close
+                  </button>
+                </div>
+
+                <div style={{ marginBottom: 10, fontSize: 14 }}>
+                  <strong>Email:</strong> {selectedApplication.candidateId?.email || '—'}
+                </div>
+
+                <div style={{ marginBottom: 10 }}>
+                  <strong style={{ fontSize: 14 }}>Skills</strong>
+                  <div className="tag-list" style={{ marginTop: 8 }}>
+                    {(selectedApplication.candidateId?.profile?.skills || []).map((skill) => (
+                      <span key={skill} className="tag">{skill}</span>
+                    ))}
+                  </div>
+                </div>
+
+                {selectedApplication.aiExplanation && (
+                  <div style={{ marginBottom: 10 }}>
+                    <strong style={{ fontSize: 14 }}>AI Explanation</strong>
+                    <p style={{ marginTop: 8, marginBottom: 8, color: 'var(--color-text-secondary)' }}>
+                      {selectedApplication.aiExplanation.experienceNote || 'No explanation available.'}
+                    </p>
+                    {selectedApplication.aiExplanation.matchedSkills?.length > 0 && (
+                      <div className="tag-list" style={{ marginBottom: 8 }}>
+                        {selectedApplication.aiExplanation.matchedSkills.map((skill) => (
+                          <span key={`matched-${skill}`} className="tag">{skill}</span>
+                        ))}
+                      </div>
+                    )}
+                    {selectedApplication.aiExplanation.missingSkills?.length > 0 && (
+                      <div className="tag-list">
+                        {selectedApplication.aiExplanation.missingSkills.map((skill) => (
+                          <span key={`missing-${skill}`} className="tag" style={{ borderColor: 'var(--color-warning)' }}>{skill}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>

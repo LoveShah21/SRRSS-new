@@ -1,5 +1,6 @@
 require('./setup');
 const { request, createUser } = require('./helpers');
+const { createJob } = require('./helpers');
 
 process.env.JWT_SECRET = 'test-jwt-secret';
 process.env.JWT_REFRESH_SECRET = 'test-refresh-secret';
@@ -142,6 +143,30 @@ describe('Admin Routes', () => {
         .set('Authorization', `Bearer ${candidateToken}`);
 
       expect(res.status).toBe(403);
+    });
+  });
+
+  describe('GET /api/recruiter/analytics (admin context)', () => {
+    it('should return system-wide analytics for admin', async () => {
+      const recruiter = await createUser({ role: 'recruiter', email: `recruiter-analytics-${Date.now()}@test.com` });
+      const job = await createJob(recruiter.token, {
+        title: 'Analytics Context Job',
+        description: 'Used for admin analytics scope test',
+      });
+
+      await request
+        .post('/api/applications')
+        .set('Authorization', `Bearer ${candidateToken}`)
+        .send({ jobId: job._id });
+
+      const res = await request
+        .get('/api/recruiter/analytics')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.analytics).toBeDefined();
+      expect(res.body.analytics.jobs.total).toBeGreaterThanOrEqual(1);
+      expect(res.body.analytics.applications.total).toBeGreaterThanOrEqual(1);
     });
   });
 });

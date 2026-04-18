@@ -42,6 +42,8 @@ describe('Candidates API', () => {
       expect(res.status).toBe(200);
       expect(res.body.candidates.length).toBeGreaterThanOrEqual(2);
       expect(res.body.pagination).toBeDefined();
+      expect(res.body.candidates[0]).toHaveProperty('application');
+      expect(res.body.candidates[0]).toHaveProperty('job');
     });
 
     it('should filter candidates by job', async () => {

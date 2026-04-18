@@ -69,26 +69,56 @@ export default function InterviewScheduler() {
 
   useEffect(() => {
     const preselectedApplicationId = searchParams.get('applicationId');
-    if (preselectedApplicationId) {
+    if (!preselectedApplicationId) return;
+
+    let cancelled = false;
+    async function preloadFromApplication() {
       setShowForm(true);
       setEditingInterview(null);
-      setForm((prev) => ({ ...prev, applicationId: preselectedApplicationId }));
+      setError('');
+
+      try {
+        const appRes = await applicationsAPI.getById(preselectedApplicationId);
+        if (cancelled) return;
+        const app = appRes.data?.application;
+        const preselectedJobId = app?.jobId?._id || app?.jobId || '';
+
+        if (preselectedJobId) {
+          setSelectedJob(preselectedJobId);
+          await loadApplicationsForJob(preselectedJobId, true);
+          if (cancelled) return;
+        }
+
+        setForm((prev) => ({ ...prev, applicationId: preselectedApplicationId }));
+      } catch (err) {
+        if (cancelled) return;
+        setForm((prev) => ({ ...prev, applicationId: preselectedApplicationId }));
+        setError(err.response?.data?.error || 'Unable to preload selected candidate for interview scheduling.');
+      }
     }
+
+    preloadFromApplication();
+    return () => { cancelled = true; };
   }, [searchParams]);
 
   async function loadInterviews() {
     try {
       const res = await interviewsAPI.list({ limit: 500 });
       setInterviews(res.data.interviews || []);
-    } catch { /* ignore */ }
-    setLoading(false);
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to load interviews.');
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function loadJobs() {
     try {
       const res = await jobsAPI.list({ limit: 100 });
       setJobs(res.data.jobs || []);
-    } catch { /* ignore */ }
+    } catch (err) {
+      setError((prev) => prev || err.response?.data?.error || 'Failed to load jobs.');
+    }
   }
 
   async function loadApplicationsForJob(jobId, includeAnyStatus = false) {
@@ -98,7 +128,9 @@ export default function InterviewScheduler() {
       if (!includeAnyStatus) params.status = 'shortlisted';
       const res = await applicationsAPI.forJob(jobId, params);
       setApplications(res.data.applications || []);
-    } catch { /* ignore */ }
+    } catch (err) {
+      setError((prev) => prev || err.response?.data?.error || 'Failed to load applications for selected job.');
+    }
   }
 
   const handleJobChange = (jobId) => {

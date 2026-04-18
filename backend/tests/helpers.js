@@ -7,7 +7,7 @@ const User = require('../src/models/User');
 const jwt = require('jsonwebtoken');
 
 /**
- * Register a user and return { user, token, refreshToken }
+ * Register, verify, and login a user; return { user, token, refreshToken }
  */
 async function createUser(overrides = {}) {
   const defaults = {
@@ -44,10 +44,29 @@ async function createUser(overrides = {}) {
   if (res.status >= 400) {
     throw new Error(`Test setup failed to register user: ${res.text}`);
   }
+
+  const registeredUser = await User.findOne({ email: data.email });
+  if (!registeredUser?.emailVerificationToken) {
+    throw new Error(`Test setup failed to get verification token for ${data.email}`);
+  }
+
+  const verifyRes = await request.get(`/api/auth/verify/${registeredUser.emailVerificationToken}`);
+  if (verifyRes.status >= 400) {
+    throw new Error(`Test setup failed to verify user: ${verifyRes.text}`);
+  }
+
+  const loginRes = await request.post('/api/auth/login').send({
+    email: data.email,
+    password: data.password,
+  });
+  if (loginRes.status >= 400) {
+    throw new Error(`Test setup failed to login user: ${loginRes.text}`);
+  }
+
   return {
-    user: res.body.user,
-    token: res.body.token,
-    refreshToken: res.body.refreshToken,
+    user: loginRes.body.user,
+    token: loginRes.body.token,
+    refreshToken: loginRes.body.refreshToken,
     email: data.email,
     password: data.password,
   };

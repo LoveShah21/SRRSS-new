@@ -24,7 +24,11 @@ export default function Register() {
     }
     setLoading(true);
     try {
-      await register(form);
+      const result = await register(form);
+      if (result?.verificationRequired) {
+        navigate(`/login?verifyPending=1&email=${encodeURIComponent(result.email || form.email)}`);
+        return;
+      }
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed.');

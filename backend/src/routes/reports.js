@@ -47,7 +47,7 @@ router.get('/candidates', authenticate, authorize('recruiter', 'admin'), asyncHa
   }
 
   const skip = (parseInt(page) - 1) * maxLimit;
-  const [applications, total] = await Promise.all([
+  const [applications, total, weeklyTrendData] = await Promise.all([
     Application.find(appQuery)
       .populate('candidateId', 'profile email')
       .populate('jobId', 'title location status')
@@ -55,6 +55,17 @@ router.get('/candidates', authenticate, authorize('recruiter', 'admin'), asyncHa
       .skip(skip)
       .limit(maxLimit),
     Application.countDocuments(appQuery),
+    Application.aggregate([
+      { $match: appQuery },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$appliedAt' } },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+      { $limit: 14 },
+    ]),
   ]);
   const totalPages = Math.ceil(total / maxLimit);
 
@@ -112,6 +123,7 @@ router.get('/candidates', authenticate, authorize('recruiter', 'admin'), asyncHa
         acc[r.status] = (acc[r.status] || 0) + 1;
         return acc;
       }, {}),
+      weeklyTrend: weeklyTrendData.map((point) => ({ date: point._id, count: point.count })),
     },
     generatedAt: new Date().toISOString(),
   });

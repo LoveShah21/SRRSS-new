@@ -3,6 +3,7 @@ const axios = require('axios');
 const Job = require('../models/Job');
 const { authenticate, authorize } = require('../middleware/auth');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
+const { escapeRegex } = require('../utils/security');
 const { isSafeExternalUrl, parseTrustedHosts } = require('../utils/urlValidator');
 const logger = require('../utils/logger');
 
@@ -28,7 +29,25 @@ router.get('/', authenticate, asyncHandler(async (req, res) => {
 
   // Text search
   if (search) {
-    query.$text = { $search: search };
+    const terms = String(search)
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((term) => escapeRegex(term));
+
+    if (terms.length > 0) {
+      query.$and = terms.map((term) => {
+        const safeRegex = { $regex: term, $options: 'i' };
+        return {
+          $or: [
+            { title: safeRegex },
+            { description: safeRegex },
+            { requiredSkills: safeRegex },
+            { location: safeRegex },
+          ],
+        };
+      });
+    }
   }
 
   // Filter by skills

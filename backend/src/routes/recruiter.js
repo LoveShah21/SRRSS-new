@@ -12,9 +12,8 @@ const router = express.Router();
  * GET /api/recruiter/analytics — Recruiter-specific analytics
  */
 router.get('/analytics', authenticate, authorize('recruiter', 'admin'), asyncHandler(async (req, res) => {
-  const recruiterId = req.user._id;
-
-  const recruiterJobs = await Job.find({ recruiterId }).select('_id title');
+  const jobScopeQuery = req.user.role === 'recruiter' ? { recruiterId: req.user._id } : {};
+  const recruiterJobs = await Job.find(jobScopeQuery).select('_id title');
   const jobIds = recruiterJobs.map((j) => j._id);
 
   if (jobIds.length === 0) {
@@ -42,8 +41,8 @@ router.get('/analytics', authenticate, authorize('recruiter', 'admin'), asyncHan
     jobStats,
     trendData,
   ] = await Promise.all([
-    Job.countDocuments({ recruiterId }),
-    Job.countDocuments({ recruiterId, status: 'open' }),
+    Job.countDocuments(jobScopeQuery),
+    Job.countDocuments({ ...jobScopeQuery, status: 'open' }),
     Application.countDocuments({ jobId: { $in: jobIds } }),
     Application.aggregate([
       { $match: { jobId: { $in: jobIds } } },
@@ -57,7 +56,9 @@ router.get('/analytics', authenticate, authorize('recruiter', 'admin'), asyncHan
       jobId: { $in: jobIds },
       appliedAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
     }),
-    Interview.countDocuments({ recruiterId }),
+    Interview.countDocuments(req.user.role === 'recruiter'
+      ? { recruiterId: req.user._id }
+      : { jobId: { $in: jobIds } }),
     Application.find({ jobId: { $in: jobIds }, status: 'hired' }).select('appliedAt'),
     Application.aggregate([
       { $match: { jobId: { $in: jobIds } } },

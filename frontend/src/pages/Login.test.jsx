@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import { BrowserRouter } from 'react-router-dom';
+import { BrowserRouter, MemoryRouter } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import Login from './Login';
+import * as api from '../services/api';
 
 const mockNavigate = vi.fn();
 const mockLogin = vi.fn();
@@ -24,6 +25,14 @@ vi.mock('../context/AuthContext', () => ({
 
 function renderWithProviders(component) {
   return render(<BrowserRouter>{component}</BrowserRouter>);
+}
+
+function renderWithRoute(component, route) {
+  return render(
+    <MemoryRouter initialEntries={[route]}>
+      {component}
+    </MemoryRouter>
+  );
 }
 
 describe('Login Page', () => {
@@ -73,5 +82,22 @@ describe('Login Page', () => {
     renderWithProviders(<Login />);
     const registerLink = screen.getByRole('link', { name: /create one/i });
     expect(registerLink).toHaveAttribute('href', '/register');
+  });
+
+  it('shows verify-pending UI and resends verification email', async () => {
+    vi.spyOn(api.authAPI, 'resendVerification').mockResolvedValue({
+      data: { message: 'Verification email sent.' },
+    });
+
+    renderWithRoute(<Login />, '/login?verifyPending=1&email=verify%40example.com');
+
+    expect(screen.getByText(/please verify your email before logging in/i)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /resend verification email/i }));
+
+    await waitFor(() => {
+      expect(api.authAPI.resendVerification).toHaveBeenCalledWith({ email: 'verify@example.com' });
+      expect(screen.getByText(/verification email sent/i)).toBeInTheDocument();
+    });
   });
 });

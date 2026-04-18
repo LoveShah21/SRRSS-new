@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { candidatesAPI, applicationsAPI, jobsAPI, recruiterAPI } from '../../services/api';
 import { useNavigate } from 'react-router-dom';
 import CandidateCard from '../../components/Recruiter/CandidateCard';
@@ -7,14 +7,24 @@ export default function CandidateList() {
   const navigate = useNavigate();
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [jobs, setJobs] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, total: 0, pages: 0 });
   const [blindMode, setBlindMode] = useState(false);
   const [settingsLoading, setSettingsLoading] = useState(true);
   const [savingBlindMode, setSavingBlindMode] = useState(false);
+  const latestRequestIdRef = useRef(0);
+  const lastQueryKeyRef = useRef('');
 
   // Filters
   const [filters, setFilters] = useState({
+    jobId: '',
+    skills: '',
+    score_min: '',
+    status: '',
+    search: '',
+  });
+  const [appliedFilters, setAppliedFilters] = useState({
     jobId: '',
     skills: '',
     score_min: '',
@@ -27,8 +37,9 @@ export default function CandidateList() {
       try {
         const res = await recruiterAPI.getSettings();
         setBlindMode(!!res.data?.settings?.blindScreeningEnabled);
-      } catch {
-        // ignore and keep local default
+      } catch (err) {
+        console.error('Failed to load recruiter settings:', err);
+        setError((prev) => prev || 'Failed to load recruiter settings. Using default screening mode.');
       } finally {
         setSettingsLoading(false);
       }
@@ -41,48 +52,69 @@ export default function CandidateList() {
       try {
         const res = await jobsAPI.list({ limit: 100 });
         setJobs(res.data.jobs || []);
-      } catch { /* ignore */ }
+      } catch (err) {
+        console.error('Failed to load jobs list:', err);
+        setError((prev) => prev || 'Failed to load jobs for filtering.');
+      }
     }
     loadJobs();
   }, []);
 
-  useEffect(() => {
-    loadCandidates();
-  }, [filters.jobId, filters.status, pagination.page, blindMode, settingsLoading]);
+  const loadCandidates = useCallback(async () => {
+    if (settingsLoading) return;
 
-  async function loadCandidates() {
+    const params = { page: pagination.page, limit: 20 };
+    if (appliedFilters.jobId) params.jobId = appliedFilters.jobId;
+    if (appliedFilters.skills) params.skills = appliedFilters.skills;
+    if (appliedFilters.score_min) params.score_min = appliedFilters.score_min;
+    if (appliedFilters.status) params.status = appliedFilters.status;
+    if (appliedFilters.search) params.search = appliedFilters.search;
+    params.blind = blindMode;
+    const queryKey = JSON.stringify(params);
+    if (queryKey === lastQueryKeyRef.current) return;
+    lastQueryKeyRef.current = queryKey;
+
+    const requestId = ++latestRequestIdRef.current;
     setLoading(true);
-    try {
-      const params = { page: pagination.page, limit: 20 };
-      if (filters.jobId) params.jobId = filters.jobId;
-      if (filters.skills) params.skills = filters.skills;
-      if (filters.score_min) params.score_min = filters.score_min;
-      if (filters.status) params.status = filters.status;
-      if (filters.search) params.search = filters.search;
-      params.blind = blindMode;
+    setError('');
 
+    try {
       const res = await candidatesAPI.list(params);
+      if (requestId !== latestRequestIdRef.current) return;
       setCandidates(res.data.candidates || []);
-      if (res.data?.blindMode !== undefined) {
-        setBlindMode(!!res.data.blindMode);
-      }
       setPagination(prev => ({ ...prev, ...res.data.pagination }));
     } catch (err) {
+      if (requestId !== latestRequestIdRef.current) return;
+      setError(err.response?.data?.error || 'Failed to load candidates.');
       console.error('Failed to load candidates:', err);
     } finally {
-      setLoading(false);
+      if (requestId === latestRequestIdRef.current) {
+        setLoading(false);
+      }
     }
-  }
+  }, [appliedFilters, blindMode, pagination.page, settingsLoading]);
+
+  useEffect(() => {
+    loadCandidates();
+  }, [loadCandidates]);
 
   const handleSearch = (e) => {
     e.preventDefault();
     setPagination(prev => ({ ...prev, page: 1 }));
-    loadCandidates();
+    setAppliedFilters({
+      jobId: filters.jobId,
+      skills: filters.skills.trim(),
+      score_min: filters.score_min,
+      status: filters.status,
+      search: filters.search.trim(),
+    });
+    lastQueryKeyRef.current = '';
   };
 
   async function handleShortlist(applicationId) {
     try {
       await applicationsAPI.updateStatus(applicationId, { status: 'shortlisted' });
+      lastQueryKeyRef.current = '';
       loadCandidates();
     } catch (err) {
       console.error('Failed to shortlist candidate:', err);
@@ -96,6 +128,7 @@ export default function CandidateList() {
   async function handleReveal(applicationId) {
     try {
       await applicationsAPI.reveal(applicationId);
+      lastQueryKeyRef.current = '';
       loadCandidates();
     } catch (err) {
       console.error('Failed to reveal candidate identity:', err);
@@ -109,6 +142,7 @@ export default function CandidateList() {
     try {
       await recruiterAPI.updateSettings({ blindScreeningEnabled: nextValue });
       setPagination((prev) => ({ ...prev, page: 1 }));
+      lastQueryKeyRef.current = '';
     } catch (err) {
       console.error('Failed to save blind screening preference:', err);
       setBlindMode(!nextValue);
@@ -126,6 +160,12 @@ export default function CandidateList() {
           </h1>
           <p className="page-subtitle">Filter and review candidate profiles</p>
         </div>
+
+        {error && (
+          <div className="alert alert-error fade-in" style={{ marginBottom: 16 }}>
+            {error}
+          </div>
+        )}
 
         {/* Filters */}
         <div className="card slide-up" style={{ marginBottom: 24 }}>

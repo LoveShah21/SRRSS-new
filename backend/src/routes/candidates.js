@@ -135,7 +135,7 @@ router.get('/', authenticate, authorize('recruiter', 'admin'), asyncHandler(asyn
   const candidateIds = users.map((u) => u._id);
   const latestApps = await Application.find({ candidateId: { $in: candidateIds } })
     .sort({ appliedAt: -1 })
-    .populate('jobId', 'title');
+    .populate('jobId', 'title requiredSkills');
 
   const appMap = {};
   latestApps.forEach((app) => {
@@ -144,26 +144,51 @@ router.get('/', authenticate, authorize('recruiter', 'admin'), asyncHandler(asyn
     }
     appMap[app.candidateId.toString()].push({
       _id: app._id,
-      jobTitle: app.jobId?.title,
+      job: app.jobId ? {
+        _id: app.jobId._id,
+        title: app.jobId.title,
+        requiredSkills: app.jobId.requiredSkills || [],
+      } : null,
       matchScore: app.matchScore,
+      scoreBreakdown: app.scoreBreakdown,
+      aiExplanation: app.aiExplanation,
       status: app.status,
       appliedAt: app.appliedAt,
     });
   });
 
-  const candidates = users.map((u) => ({
-    _id: u._id,
-    email: isBlindMode ? null : u.email,
-    profile: isBlindMode ? {
-      firstName: 'Anonymous',
-      lastName: 'Candidate',
-      skills: u.profile?.skills || [],
-      experience: u.profile?.experience || [],
-      education: u.profile?.education || [],
-    } : u.profile,
-    applications: appMap[u._id.toString()] || [],
-    createdAt: u.createdAt,
-  }));
+  const candidates = users.map((u) => {
+    const candidateApps = appMap[u._id.toString()] || [];
+    const latestApp = candidateApps[0] || null;
+    return {
+      _id: u._id,
+      email: isBlindMode ? null : u.email,
+      profile: isBlindMode ? {
+        firstName: 'Anonymous',
+        lastName: 'Candidate',
+        skills: u.profile?.skills || [],
+        experience: u.profile?.experience || [],
+        education: u.profile?.education || [],
+      } : u.profile,
+      application: latestApp ? {
+        _id: latestApp._id,
+        matchScore: latestApp.matchScore,
+        scoreBreakdown: latestApp.scoreBreakdown,
+        aiExplanation: latestApp.aiExplanation,
+        status: latestApp.status,
+        appliedAt: latestApp.appliedAt,
+      } : null,
+      job: latestApp?.job || null,
+      applications: candidateApps.map((app) => ({
+        _id: app._id,
+        jobTitle: app.job?.title,
+        matchScore: app.matchScore,
+        status: app.status,
+        appliedAt: app.appliedAt,
+      })),
+      createdAt: u.createdAt,
+    };
+  });
 
   res.json({
     candidates,

@@ -83,7 +83,12 @@ describe('Jobs Routes', () => {
   describe('GET /api/jobs', () => {
     beforeEach(async () => {
       await createJob(recruiterToken, { title: 'Backend Dev', location: 'NYC' });
-      await createJob(recruiterToken, { title: 'Frontend Dev', location: 'Remote' });
+      await createJob(recruiterToken, {
+        title: 'Frontend Dev',
+        description: 'Build React dashboards',
+        requiredSkills: ['React', 'TypeScript'],
+        location: 'Remote',
+      });
     });
 
     it('should list jobs for candidate (open only)', async () => {
@@ -103,6 +108,17 @@ describe('Jobs Routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.jobs.every((j) => j.location.includes('NYC'))).toBe(true);
+    });
+
+    it('should filter by search across title, description, and skills', async () => {
+      const res = await request
+        .get('/api/jobs?search=React')
+        .set('Authorization', `Bearer ${candidateToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.jobs.length).toBeGreaterThanOrEqual(1);
+      expect(res.body.jobs.some((j) => j.title === 'Frontend Dev')).toBe(true);
+      expect(res.body.jobs.some((j) => j.title === 'Backend Dev')).toBe(false);
     });
 
     it('should reject unauthenticated request', async () => {

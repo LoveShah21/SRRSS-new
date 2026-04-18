@@ -197,6 +197,27 @@ router.post('/job/:jobId/rank', authenticate, authorize('recruiter', 'admin'), a
 }));
 
 /**
+ * GET /api/applications/:id — Get single application details
+ */
+router.get('/:id', authenticate, authorize('candidate', 'recruiter', 'admin'), asyncHandler(async (req, res) => {
+  const application = await Application.findById(req.params.id)
+    .populate('candidateId', 'profile email')
+    .populate('jobId', 'title recruiterId');
+
+  if (!application) throw new AppError('Application not found.', 404);
+
+  if (req.user.role === 'candidate' && application.candidateId?._id?.toString() !== req.user._id.toString()) {
+    throw new AppError('Access denied.', 403);
+  }
+
+  if (req.user.role === 'recruiter' && application.jobId?.recruiterId?.toString() !== req.user._id.toString()) {
+    throw new AppError('You can only view applications for your own jobs.', 403);
+  }
+
+  res.json({ application });
+}));
+
+/**
  * POST /api/applications/:id/reveal — Reveal candidate identity in blind mode (Recruiter/Admin)
  */
 router.post('/:id/reveal', authenticate, authorize('recruiter', 'admin'), asyncHandler(async (req, res) => {
