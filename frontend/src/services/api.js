@@ -30,9 +30,12 @@ api.interceptors.response.use(
       '/auth/register',
       '/auth/verify',
       '/auth/resend-verification',
+      '/auth/forgot-password',
+      '/auth/reset-password',
     ].some((path) => requestUrl.includes(path));
-    const isPublicPath = ['/', '/login', '/register'].includes(window.location.pathname)
-      || window.location.pathname.startsWith('/verify-email/');
+    const isPublicPath = ['/', '/login', '/register', '/verify-email', '/forgot-password'].includes(window.location.pathname)
+      || window.location.pathname.startsWith('/verify-email/')
+      || window.location.pathname.startsWith('/reset-password/');
 
     // Public/auth bootstrap requests should not force browser redirect.
     if (error.response?.status === 401 && isAuthBootstrapRequest) {
@@ -82,6 +85,8 @@ export const authAPI = {
   verifyEmail: () => api.post('/auth/verify-email'),
   verifyToken: (token) => api.get(`/auth/verify/${token}`),
   resendVerification: (data) => api.post('/auth/resend-verification', data),
+  forgotPassword: (data) => api.post('/auth/forgot-password', data),
+  resetPassword: (data) => api.post('/auth/reset-password', data),
 };
 
 // ─── Jobs ────────────────────────────────────────────
@@ -150,6 +155,7 @@ export const adminAPI = {
   dashboard: () => api.get('/reports/overview'),
   getBiMetrics: () => api.get('/reports/bi-metrics'),
   users: (params) => api.get('/admin/users', { params }),
+  createRecruiter: (data) => api.post('/admin/recruiters', data),
   updateRole: (id, data) => api.patch(`/admin/users/${id}/role`, data),
   deleteUser: (id) => api.delete(`/admin/users/${id}`),
 };

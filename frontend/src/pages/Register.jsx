@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Register() {
@@ -14,6 +15,7 @@ export default function Register() {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -26,7 +28,7 @@ export default function Register() {
     try {
       const result = await register(form);
       if (result?.verificationRequired) {
-        navigate(`/login?verifyPending=1&email=${encodeURIComponent(result.email || form.email)}`);
+        navigate(`/verify-email?email=${encodeURIComponent(result.email || form.email)}`);
         return;
       }
       navigate('/dashboard');
@@ -41,16 +43,16 @@ export default function Register() {
 
   return (
     <div className="auth-page">
-      <div className="auth-card fade-in">
+      <div className="auth-card auth-card-wide fade-in">
         <h1>
           Join <span className="text-gradient">SRRSS</span>
         </h1>
-        <p className="auth-subtitle">Create your account to get started</p>
+        <p className="auth-subtitle">Create your account and verify your email to get started</p>
 
         {error && <div className="alert alert-error">{error}</div>}
 
         <form onSubmit={handleSubmit}>
-          <div className="flex gap-md">
+          <div className="auth-grid-two">
             <div className="form-group flex-1">
               <label className="form-label" htmlFor="reg-first">First Name</label>
               <input id="reg-first" className="form-input" value={form.firstName} onChange={set('firstName')} required />
@@ -66,7 +68,27 @@ export default function Register() {
           </div>
           <div className="form-group" style={{ marginTop: 16 }}>
             <label className="form-label" htmlFor="reg-password">Password</label>
-            <input id="reg-password" className="form-input" type="password" placeholder="At least 6 characters" value={form.password} onChange={set('password')} required />
+            <div style={{ position: 'relative' }}>
+              <input
+                id="reg-password"
+                className="form-input"
+                type={showPassword ? 'text' : 'password'}
+                placeholder="At least 8 characters"
+                value={form.password}
+                onChange={set('password')}
+                required
+                style={{ paddingRight: 44 }}
+              />
+              <button
+                type="button"
+                className="btn btn-ghost btn-icon"
+                onClick={() => setShowPassword((prev) => !prev)}
+                style={{ position: 'absolute', right: 4, top: 4, width: 36, height: 36 }}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </div>
           <div className="form-group" style={{ marginTop: 16 }}>
             <label className="form-label" htmlFor="reg-role">I am a</label>

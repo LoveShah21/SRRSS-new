@@ -608,6 +608,20 @@ tr:hover td {
   box-shadow: var(--shadow-xl);
 }
 
+.auth-card-wide {
+  max-width: 560px;
+}
+
+.auth-grid-two {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.auth-card .auth-grid-two .form-group + .form-group {
+  margin-top: 0;
+}
+
 .auth-card h1 {
   font-size: 28px;
   text-align: center;
@@ -634,6 +648,16 @@ tr:hover td {
   margin-top: 24px;
   font-size: 14px;
   color: var(--text-muted);
+}
+
+@media (max-width: 640px) {
+  .auth-card {
+    padding: 28px 20px;
+  }
+  .auth-grid-two {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
 }
 
 /* ─── Skill Tags ─── */

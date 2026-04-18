@@ -29,12 +29,12 @@ function toDatetimeLocalValue(dateString) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
-const TYPE_ICONS = {
-  video: '📹',
-  phone: '📞',
-  'in-person': '🏢',
-  technical: '💻',
-  hr: '👤',
+const TYPE_LABELS = {
+  video: 'Video',
+  phone: 'Phone',
+  'in-person': 'In Person',
+  technical: 'Technical',
+  hr: 'HR',
 };
 
 export default function InterviewScheduler() {
@@ -576,9 +576,10 @@ export default function InterviewScheduler() {
                             <div
                               key={iv._id}
                               style={{
-                                display: 'flex',
+                                display: 'grid',
+                                gridTemplateColumns: '86px minmax(0, 1fr) auto',
                                 alignItems: 'center',
-                                gap: 8,
+                                gap: 10,
                                 padding: '6px 10px',
                                 background: config.bg,
                                 border: config.border,
@@ -587,9 +588,32 @@ export default function InterviewScheduler() {
                               }}
                             >
                               <span style={{ fontWeight: 700, fontFamily: 'monospace' }}>{formatTime(new Date(iv.scheduledAt))}</span>
-                              <span style={{ width: 2 }}>{TYPE_ICONS[iv.type] || '📅'}</span>
-                              <span>{iv.candidateId?.profile?.firstName} {iv.candidateId?.profile?.lastName}</span>
-                              <span style={{ fontSize: 11, color: 'var(--color-text-secondary)' }}>{iv.jobId?.title}</span>
+                              <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span
+                                  style={{
+                                    fontWeight: 600,
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                  }}
+                                >
+                                  {iv.candidateId?.profile?.firstName} {iv.candidateId?.profile?.lastName}
+                                </span>
+                                <span className="badge badge-neutral" style={{ fontSize: 10 }}>
+                                  {TYPE_LABELS[iv.type] || 'Interview'}
+                                </span>
+                                <span
+                                  style={{
+                                    fontSize: 11,
+                                    color: 'var(--color-text-secondary)',
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                  }}
+                                >
+                                  {iv.jobId?.title}
+                                </span>
+                              </div>
                               <span className={`badge ${getStatusColor(iv.status)}`} style={{ fontSize: 10 }}>{iv.status}</span>
                             </div>
                           );
@@ -676,7 +700,7 @@ export default function InterviewScheduler() {
                         {iv.candidateId?.profile?.firstName} {iv.candidateId?.profile?.lastName}
                       </h3>
                       <p style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
-                        {iv.jobId?.title} • {TYPE_ICONS[iv.type] || 'Interview'} {iv.type}
+                        {iv.jobId?.title} • {TYPE_LABELS[iv.type] || 'Interview'}
                       </p>
                     </div>
                     <div style={{ textAlign: 'right' }}>

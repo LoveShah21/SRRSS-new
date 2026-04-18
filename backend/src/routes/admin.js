@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const User = require('../models/User');
 const Job = require('../models/Job');
 const Application = require('../models/Application');
@@ -6,6 +7,7 @@ const Interview = require('../models/Interview');
 const { authenticate, authorize } = require('../middleware/auth');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { escapeRegex } = require('../utils/security');
+const { sendRecruiterCredentials } = require('../services/emailService');
 
 const router = express.Router();
 
@@ -56,6 +58,54 @@ router.patch('/users/:id/role', authenticate, authorize('admin'), asyncHandler(a
   if (!user) throw new AppError('User not found.', 404);
 
   res.json({ message: `Role updated to "${role}".`, user });
+}));
+
+/**
+ * POST /api/admin/recruiters — Create recruiter account and email credentials
+ */
+router.post('/recruiters', authenticate, authorize('admin'), asyncHandler(async (req, res) => {
+  const {
+    email,
+    firstName,
+    lastName,
+  } = req.body;
+
+  if (!email || !firstName || !lastName) {
+    throw new AppError('Email, firstName, and lastName are required.', 400);
+  }
+
+  const existingUser = await User.findOne({ email });
+  if (existingUser) {
+    throw new AppError('Email already registered.', 409);
+  }
+
+  const temporaryPassword = `SRRSS!${crypto.randomBytes(6).toString('hex')}`;
+
+  const recruiter = await User.create({
+    email,
+    passwordHash: temporaryPassword,
+    role: 'recruiter',
+    profile: {
+      firstName,
+      lastName,
+    },
+    isEmailVerified: true,
+  });
+
+  const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/login`;
+  const deliveryResult = await sendRecruiterCredentials({
+    to: recruiter.email,
+    firstName: recruiter.profile?.firstName || 'Recruiter',
+    temporaryPassword,
+    loginUrl,
+  });
+
+  res.status(201).json({
+    message: deliveryResult?.sent
+      ? 'Recruiter account created and credentials sent via email.'
+      : 'Recruiter account created. Email delivery was not confirmed, please verify SMTP configuration.',
+    recruiter,
+  });
 }));
 
 /**

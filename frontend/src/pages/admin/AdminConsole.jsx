@@ -34,6 +34,12 @@ export default function AdminConsole() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [editingRole, setEditingRole] = useState(null);
+  const [recruiterLoading, setRecruiterLoading] = useState(false);
+  const [recruiterForm, setRecruiterForm] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+  });
 
   useEffect(() => {
     loadUsers({ page: pagination.page });
@@ -124,6 +130,27 @@ export default function AdminConsole() {
     }
   };
 
+  const handleCreateRecruiter = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setRecruiterLoading(true);
+    try {
+      const res = await adminAPI.createRecruiter(recruiterForm);
+      setSuccess(res.data?.message || 'Recruiter account created.');
+      setRecruiterForm({ firstName: '', lastName: '', email: '' });
+      await Promise.all([
+        loadUsers({ page: 1 }),
+        loadAnalytics(),
+      ]);
+      setPagination((prev) => ({ ...prev, page: 1 }));
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to create recruiter account.');
+    } finally {
+      setRecruiterLoading(false);
+    }
+  };
+
   const signupTrendData = analytics?.users?.signupsTrend || [];
   const jobStatusData = Object.entries(analytics?.jobs?.byStatus || {}).map(([status, count]) => ({ status, count }));
   const applicationFlowData = Object.entries(analytics?.applications?.byStatus || {}).map(([status, count]) => ({
@@ -161,6 +188,48 @@ export default function AdminConsole() {
             <button onClick={() => setSuccess('')} style={{ float: 'right', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }}>✕</button>
           </div>
         )}
+
+        <div className="card slide-up" style={{ marginBottom: 24 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>Create Recruiter Account</h2>
+          <form onSubmit={handleCreateRecruiter} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+            <div className="form-group" style={{ marginTop: 0 }}>
+              <label className="form-label">First Name</label>
+              <input
+                className="form-input"
+                value={recruiterForm.firstName}
+                onChange={(e) => setRecruiterForm((prev) => ({ ...prev, firstName: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="form-group" style={{ marginTop: 0 }}>
+              <label className="form-label">Last Name</label>
+              <input
+                className="form-input"
+                value={recruiterForm.lastName}
+                onChange={(e) => setRecruiterForm((prev) => ({ ...prev, lastName: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="form-group" style={{ marginTop: 0 }}>
+              <label className="form-label">Recruiter Email</label>
+              <input
+                className="form-input"
+                type="email"
+                value={recruiterForm.email}
+                onChange={(e) => setRecruiterForm((prev) => ({ ...prev, email: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="form-group" style={{ display: 'flex', alignItems: 'end', marginTop: 0 }}>
+              <button type="submit" className="btn btn-primary btn-full" disabled={recruiterLoading}>
+                {recruiterLoading ? <div className="spinner" /> : 'Create Recruiter'}
+              </button>
+            </div>
+          </form>
+          <p style={{ marginTop: 10, fontSize: 13, color: 'var(--color-text-secondary)' }}>
+            The system emails initial login credentials to the recruiter automatically.
+          </p>
+        </div>
 
         <div className="card slide-up" style={{ marginBottom: 24 }}>
           <form onSubmit={handleSearch} style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'end' }}>

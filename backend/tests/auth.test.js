@@ -29,7 +29,7 @@ describe('Auth Routes', () => {
       expect(res.body.requiresEmailVerification).toBe(true);
     });
 
-    it('should register a recruiter', async () => {
+    it('should register a recruiter when recruiter role is requested', async () => {
       const res = await request.post('/api/auth/register').send({
         email: 'recruiter@company.com',
         password: 'StrongPass1!',
@@ -69,7 +69,7 @@ describe('Auth Routes', () => {
       expect(res.status).toBe(400);
     });
 
-    it('should default to candidate role for invalid roles', async () => {
+    it('should default to candidate role for invalid/admin role attempts', async () => {
       const res = await request.post('/api/auth/register').send({
         email: 'norole@example.com',
         password: 'StrongPass1!',
@@ -225,7 +225,7 @@ describe('Auth Routes', () => {
   });
 
   describe('Email verification lifecycle', () => {
-    it('should resend verification and rotate token for unverified user', async () => {
+    it('should resend verification and reuse existing unexpired token', async () => {
       const email = `verify-${Date.now()}@example.com`;
       await request.post('/api/auth/register').send({
         email,
@@ -245,8 +245,33 @@ describe('Auth Routes', () => {
 
       const userAfter = await User.findOne({ email });
       expect(userAfter.emailVerificationToken).toBeDefined();
-      expect(userAfter.emailVerificationToken).not.toBe(previousToken);
+      expect(userAfter.emailVerificationToken).toBe(previousToken);
       expect(userAfter.emailVerificationExpires).toBeDefined();
+    });
+
+    it('should rotate verification token when previous token is expired', async () => {
+      const email = `verify-expired-${Date.now()}@example.com`;
+      await request.post('/api/auth/register').send({
+        email,
+        password: 'StrongPass1!',
+        firstName: 'Verify',
+        lastName: 'Expired',
+      });
+
+      const User = require('../src/models/User');
+      const userBefore = await User.findOne({ email });
+      const previousToken = userBefore.emailVerificationToken;
+
+      userBefore.emailVerificationExpires = new Date(Date.now() - 60 * 1000);
+      await userBefore.save({ validateBeforeSave: false });
+
+      const resendRes = await request.post('/api/auth/resend-verification').send({ email });
+      expect(resendRes.status).toBe(200);
+
+      const userAfter = await User.findOne({ email });
+      expect(userAfter.emailVerificationToken).toBeDefined();
+      expect(userAfter.emailVerificationToken).not.toBe(previousToken);
+      expect(userAfter.emailVerificationExpires > new Date()).toBe(true);
     });
 
     it('should verify email token and allow login afterwards', async () => {
@@ -272,6 +297,44 @@ describe('Auth Routes', () => {
 
       expect(loginRes.status).toBe(200);
       expect(loginRes.body.token).toBeDefined();
+    });
+
+    it('should treat repeated verification requests as successful', async () => {
+      const email = `verify-repeat-${Date.now()}@example.com`;
+      await request.post('/api/auth/register').send({
+        email,
+        password: 'StrongPass1!',
+        firstName: 'Verify',
+        lastName: 'Repeat',
+      });
+
+      const User = require('../src/models/User');
+      const userBefore = await User.findOne({ email });
+      const verifyPath = `/api/auth/verify/${userBefore.emailVerificationToken}`;
+
+      const firstVerify = await request.get(verifyPath);
+      const secondVerify = await request.get(verifyPath);
+
+      expect(firstVerify.status).toBe(200);
+      expect(secondVerify.status).toBe(200);
+      expect(secondVerify.body.message).toMatch(/already verified|verified successfully/i);
+    });
+
+    it('should verify email token even when token casing is altered in URL', async () => {
+      const email = `verify-casing-${Date.now()}@example.com`;
+      await request.post('/api/auth/register').send({
+        email,
+        password: 'StrongPass1!',
+        firstName: 'Verify',
+        lastName: 'Casing',
+      });
+
+      const User = require('../src/models/User');
+      const userBefore = await User.findOne({ email });
+      const verifyRes = await request.get(`/api/auth/verify/${userBefore.emailVerificationToken.toUpperCase()}`);
+
+      expect(verifyRes.status).toBe(200);
+      expect(verifyRes.body.message).toMatch(/email verified successfully/i);
     });
   });
 });

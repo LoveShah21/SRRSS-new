@@ -63,8 +63,18 @@ async function createUser(overrides = {}) {
     throw new Error(`Test setup failed to login user: ${loginRes.text}`);
   }
 
+  let resolvedUser = loginRes.body.user;
+  if (data.role && data.role !== 'candidate') {
+    const updatedUser = await User.findByIdAndUpdate(
+      loginRes.body.user._id,
+      { role: data.role },
+      { returnDocument: 'after' },
+    );
+    resolvedUser = JSON.parse(JSON.stringify(updatedUser));
+  }
+
   return {
-    user: loginRes.body.user,
+    user: resolvedUser,
     token: loginRes.body.token,
     refreshToken: loginRes.body.refreshToken,
     email: data.email,

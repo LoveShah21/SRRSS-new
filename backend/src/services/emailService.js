@@ -194,6 +194,31 @@ async function sendPasswordReset({ to, firstName, resetUrl }) {
   });
 }
 
+async function sendRecruiterCredentials({
+  to,
+  firstName,
+  temporaryPassword,
+  loginUrl,
+}) {
+  const content = `
+    <p>Hi ${firstName},</p>
+    <p>Your recruiter account has been created by the SRRSS admin team.</p>
+    <p>Use the credentials below to log in:</p>
+    <p>
+      <strong>Email:</strong> ${to}<br/>
+      <strong>Temporary Password:</strong> ${temporaryPassword}
+    </p>
+    <p>For security, please change your password after your first login.</p>
+  `;
+
+  return sendEmail({
+    to,
+    subject: 'Your Recruiter Account Credentials – SRRSS',
+    text: `Hi ${firstName},\n\nYour recruiter account has been created.\n\nEmail: ${to}\nTemporary Password: ${temporaryPassword}\n\nLogin here: ${loginUrl}\n\nFor security, please change your password after your first login.\n\nBest regards,\n${APP_NAME}`,
+    html: generateHTMLTemplate('Recruiter Account Created', content, 'Go to Login', loginUrl),
+  });
+}
+
 module.exports = {
   sendEmail,
   sendInterviewScheduled,
@@ -201,4 +226,5 @@ module.exports = {
   sendApplicationReceived,
   sendEmailVerification,
   sendPasswordReset,
+  sendRecruiterCredentials,
 };

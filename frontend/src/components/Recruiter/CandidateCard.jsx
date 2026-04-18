@@ -147,12 +147,12 @@ export default function CandidateCard({
         </div>
 
         {/* Right Side: Radar Chart Visualization */}
-        <div style={{ height: 250, position: 'relative' }}>
+        <div style={{ height: 250, position: 'relative', color: 'white' }}>
           {radarData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
               <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
                 <PolarGrid stroke="#e5e7eb" />
-                <PolarAngleAxis dataKey="subject" tick={{ fontSize: 12, fill: 'var(--color-text-secondary)' }} />
+                <PolarAngleAxis dataKey="subject" tick={{ fontSize: 12, fill: '#ffffff' }} />
                 <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
                 <Tooltip />
                 <Radar

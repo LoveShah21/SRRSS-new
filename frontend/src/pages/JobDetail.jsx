@@ -115,6 +115,25 @@ export default function JobDetail() {
     return 'score-low';
   };
 
+  useEffect(() => {
+    if (!selectedApplication) return undefined;
+
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setSelectedApplication(null);
+      }
+    };
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [selectedApplication]);
+
   if (loading) {
     return <div className="loading-center"><div className="spinner spinner-lg" /></div>;
   }
@@ -333,54 +352,62 @@ export default function JobDetail() {
               </div>
             )}
 
-            {selectedApplication && (
-              <div className="card" style={{ marginTop: 20, padding: 16, background: 'var(--color-surface)' }}>
-                <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
-                  <h3 style={{ fontSize: 18, fontWeight: 700 }}>
-                    Candidate Review — {selectedApplication.candidateId?.profile?.firstName} {selectedApplication.candidateId?.profile?.lastName}
-                  </h3>
-                  <button className="btn btn-ghost btn-sm" onClick={() => setSelectedApplication(null)}>
-                    Close
-                  </button>
-                </div>
+          </div>
+        )}
 
-                <div style={{ marginBottom: 10, fontSize: 14 }}>
-                  <strong>Email:</strong> {selectedApplication.candidateId?.email || '—'}
-                </div>
-
-                <div style={{ marginBottom: 10 }}>
-                  <strong style={{ fontSize: 14 }}>Skills</strong>
-                  <div className="tag-list" style={{ marginTop: 8 }}>
-                    {(selectedApplication.candidateId?.profile?.skills || []).map((skill) => (
-                      <span key={skill} className="tag">{skill}</span>
-                    ))}
-                  </div>
-                </div>
-
-                {selectedApplication.aiExplanation && (
-                  <div style={{ marginBottom: 10 }}>
-                    <strong style={{ fontSize: 14 }}>AI Explanation</strong>
-                    <p style={{ marginTop: 8, marginBottom: 8, color: 'var(--color-text-secondary)' }}>
-                      {selectedApplication.aiExplanation.experienceNote || 'No explanation available.'}
-                    </p>
-                    {selectedApplication.aiExplanation.matchedSkills?.length > 0 && (
-                      <div className="tag-list" style={{ marginBottom: 8 }}>
-                        {selectedApplication.aiExplanation.matchedSkills.map((skill) => (
-                          <span key={`matched-${skill}`} className="tag">{skill}</span>
-                        ))}
-                      </div>
-                    )}
-                    {selectedApplication.aiExplanation.missingSkills?.length > 0 && (
-                      <div className="tag-list">
-                        {selectedApplication.aiExplanation.missingSkills.map((skill) => (
-                          <span key={`missing-${skill}`} className="tag" style={{ borderColor: 'var(--color-warning)' }}>{skill}</span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+        {selectedApplication && (
+          <div
+            className="modal-overlay"
+            onClick={(event) => {
+              if (event.target === event.currentTarget) setSelectedApplication(null);
+            }}
+          >
+            <div className="modal" style={{ maxWidth: 760, maxHeight: '85vh', overflowY: 'auto' }}>
+              <div className="modal-header">
+                <h3 className="modal-title">
+                  Candidate Review — {selectedApplication.candidateId?.profile?.firstName} {selectedApplication.candidateId?.profile?.lastName}
+                </h3>
+                <button className="btn btn-ghost btn-sm" onClick={() => setSelectedApplication(null)}>
+                  Close
+                </button>
               </div>
-            )}
+
+              <div style={{ marginBottom: 10, fontSize: 14 }}>
+                <strong>Email:</strong> {selectedApplication.candidateId?.email || '—'}
+              </div>
+
+              <div style={{ marginBottom: 10 }}>
+                <strong style={{ fontSize: 14 }}>Skills</strong>
+                <div className="tag-list" style={{ marginTop: 8 }}>
+                  {(selectedApplication.candidateId?.profile?.skills || []).map((skill) => (
+                    <span key={skill} className="tag">{skill}</span>
+                  ))}
+                </div>
+              </div>
+
+              {selectedApplication.aiExplanation && (
+                <div style={{ marginBottom: 10 }}>
+                  <strong style={{ fontSize: 14 }}>AI Explanation</strong>
+                  <p style={{ marginTop: 8, marginBottom: 8, color: 'var(--color-text-secondary)' }}>
+                    {selectedApplication.aiExplanation.experienceNote || 'No explanation available.'}
+                  </p>
+                  {selectedApplication.aiExplanation.matchedSkills?.length > 0 && (
+                    <div className="tag-list" style={{ marginBottom: 8 }}>
+                      {selectedApplication.aiExplanation.matchedSkills.map((skill) => (
+                        <span key={`matched-${skill}`} className="tag">{skill}</span>
+                      ))}
+                    </div>
+                  )}
+                  {selectedApplication.aiExplanation.missingSkills?.length > 0 && (
+                    <div className="tag-list">
+                      {selectedApplication.aiExplanation.missingSkills.map((skill) => (
+                        <span key={`missing-${skill}`} className="tag" style={{ borderColor: 'var(--color-warning)' }}>{skill}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

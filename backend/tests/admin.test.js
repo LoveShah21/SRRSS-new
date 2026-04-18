@@ -94,6 +94,59 @@ describe('Admin Routes', () => {
     });
   });
 
+  describe('POST /api/admin/recruiters', () => {
+    it('should allow admin to create recruiter account', async () => {
+      const res = await request
+        .post('/api/admin/recruiters')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          email: `new-recruiter-${Date.now()}@test.com`,
+          firstName: 'New',
+          lastName: 'Recruiter',
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.recruiter).toBeDefined();
+      expect(res.body.recruiter.role).toBe('recruiter');
+      expect(res.body.recruiter.isEmailVerified).toBe(true);
+    });
+
+    it('should reject duplicate recruiter email', async () => {
+      await request
+        .post('/api/admin/recruiters')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          email: 'duplicate-recruiter@test.com',
+          firstName: 'First',
+          lastName: 'One',
+        });
+
+      const secondAttempt = await request
+        .post('/api/admin/recruiters')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          email: 'duplicate-recruiter@test.com',
+          firstName: 'Second',
+          lastName: 'One',
+        });
+
+      expect(secondAttempt.status).toBe(409);
+    });
+
+    it('should deny recruiter creation for non-admin', async () => {
+      const res = await request
+        .post('/api/admin/recruiters')
+        .set('Authorization', `Bearer ${candidateToken}`)
+        .send({
+          email: `blocked-recruiter-${Date.now()}@test.com`,
+          firstName: 'Blocked',
+          lastName: 'User',
+        });
+
+      expect(res.status).toBe(403);
+    });
+  });
+
   // ── DELETE USER ───────────────────────────────────────
   describe('DELETE /api/admin/users/:id', () => {
     it('should delete a user', async () => {

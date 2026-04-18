@@ -44,7 +44,7 @@ describe('Login Page', () => {
     renderWithProviders(<Login />);
 
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^password$/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /sign in/i })).toBeInTheDocument();
     expect(screen.getByText(/don't have an account/i)).toBeInTheDocument();
   });
@@ -54,7 +54,7 @@ describe('Login Page', () => {
     renderWithProviders(<Login />);
 
     await userEvent.type(screen.getByLabelText(/email/i), 'test@example.com');
-    await userEvent.type(screen.getByLabelText(/password/i), 'password123');
+    await userEvent.type(screen.getByLabelText(/^password$/i), 'password123');
     await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
 
     await waitFor(() => {
@@ -70,7 +70,7 @@ describe('Login Page', () => {
     renderWithProviders(<Login />);
 
     await userEvent.type(screen.getByLabelText(/email/i), 'test@example.com');
-    await userEvent.type(screen.getByLabelText(/password/i), 'wrongpassword');
+    await userEvent.type(screen.getByLabelText(/^password$/i), 'wrongpassword');
     await userEvent.click(screen.getByRole('button', { name: /sign in/i }));
 
     await waitFor(() => {

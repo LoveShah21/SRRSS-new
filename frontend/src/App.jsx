@@ -5,6 +5,8 @@ import Navbar from './components/Navbar';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import VerifyEmail from './pages/VerifyEmail';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import JobBoard from './pages/JobBoard';
 import JobDetail from './pages/JobDetail';
@@ -48,7 +50,10 @@ export default function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/verify-email/:token" element={<VerifyEmail />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password/:token" element={<ResetPassword />} />
 
         {/* Protected — All Roles */}
         <Route path="/dashboard" element={

@@ -38,7 +38,7 @@ router.post('/register', asyncHandler(async (req, res) => {
     throw new AppError('Email, password, firstName, and lastName are required.', 400);
   }
 
-  // Only allow candidate/recruiter self-registration
+  // Public signups can choose candidate or recruiter; admin cannot self-register.
   const allowedRoles = ['candidate', 'recruiter'];
   const userRole = allowedRoles.includes(role) ? role : 'candidate';
 
@@ -61,7 +61,7 @@ router.post('/register', asyncHandler(async (req, res) => {
   user.emailVerificationExpires = verificationExpires;
   await user.save({ validateBeforeSave: false });
 
-  const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email/${verificationToken}`;
+  const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email/${verificationToken}?email=${encodeURIComponent(user.email)}`;
   const deliveryResult = await sendEmailVerification({
     to: user.email,
     firstName: user.profile?.firstName || 'User',
@@ -206,7 +206,7 @@ router.post('/verify-email', authenticate, asyncHandler(async (req, res) => {
   user.emailVerificationExpires = verificationExpires;
   await user.save({ validateBeforeSave: false });
 
-  const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email/${verificationToken}`;
+  const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email/${verificationToken}?email=${encodeURIComponent(user.email)}`;
   await sendEmailVerification({
     to: user.email,
     firstName: user.profile?.firstName || 'User',
@@ -220,20 +220,31 @@ router.post('/verify-email', authenticate, asyncHandler(async (req, res) => {
  * GET /api/auth/verify/:token — Verify email with token
  */
 router.get('/verify/:token', asyncHandler(async (req, res) => {
-  const { token } = req.params;
+  const rawToken = String(req.params.token || '').trim();
+  const normalizedToken = rawToken.toLowerCase().replace(/[^a-f0-9]/g, '');
+  const tokenCandidates = [rawToken];
+  if (normalizedToken && normalizedToken !== rawToken) {
+    tokenCandidates.push(normalizedToken);
+  }
 
   const user = await User.findOne({
-    emailVerificationToken: token,
-    emailVerificationExpires: { $gt: new Date() },
+    emailVerificationToken: { $in: tokenCandidates },
   });
 
   if (!user) {
     throw new AppError('Invalid or expired verification token.', 400);
   }
 
+  if (!user.isEmailVerified && (!user.emailVerificationExpires || user.emailVerificationExpires <= new Date())) {
+    throw new AppError('Invalid or expired verification token.', 400);
+  }
+
+  if (user.isEmailVerified) {
+    res.json({ message: 'Email already verified.' });
+    return;
+  }
+
   user.isEmailVerified = true;
-  user.emailVerificationToken = undefined;
-  user.emailVerificationExpires = undefined;
   await user.save({ validateBeforeSave: false });
 
   res.json({ message: 'Email verified successfully.' });
@@ -252,14 +263,23 @@ router.post('/resend-verification', asyncHandler(async (req, res) => {
   const user = await User.findOne({ email });
 
   if (user && !user.isEmailVerified) {
-    const verificationToken = crypto.randomBytes(32).toString('hex');
-    const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const hasValidToken = Boolean(
+      user.emailVerificationToken
+      && user.emailVerificationExpires
+      && user.emailVerificationExpires > new Date(),
+    );
 
-    user.emailVerificationToken = verificationToken;
-    user.emailVerificationExpires = verificationExpires;
-    await user.save({ validateBeforeSave: false });
+    const verificationToken = hasValidToken
+      ? user.emailVerificationToken
+      : crypto.randomBytes(32).toString('hex');
 
-    const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email/${verificationToken}`;
+    if (!hasValidToken) {
+      user.emailVerificationToken = verificationToken;
+      user.emailVerificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      await user.save({ validateBeforeSave: false });
+    }
+
+    const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email/${verificationToken}?email=${encodeURIComponent(user.email)}`;
     await sendEmailVerification({
       to: user.email,
       firstName: user.profile?.firstName || 'User',
