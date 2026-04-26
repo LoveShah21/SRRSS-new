@@ -6,6 +6,7 @@ const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { authenticate } = require('../middleware/auth');
 const { sendEmailVerification, sendPasswordReset } = require('../services/emailService');
 const { createAuditEntry } = require('../middleware/auditLogger');
+const { getPrimaryClientUrl } = require('../utils/urlConfig');
 
 const router = express.Router();
 
@@ -61,7 +62,7 @@ router.post('/register', asyncHandler(async (req, res) => {
   user.emailVerificationExpires = verificationExpires;
   await user.save({ validateBeforeSave: false });
 
-  const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email/${verificationToken}?email=${encodeURIComponent(user.email)}`;
+  const verificationUrl = `${getPrimaryClientUrl()}/verify-email/${verificationToken}?email=${encodeURIComponent(user.email)}`;
   const deliveryResult = await sendEmailVerification({
     to: user.email,
     firstName: user.profile?.firstName || 'User',
@@ -206,7 +207,7 @@ router.post('/verify-email', authenticate, asyncHandler(async (req, res) => {
   user.emailVerificationExpires = verificationExpires;
   await user.save({ validateBeforeSave: false });
 
-  const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email/${verificationToken}?email=${encodeURIComponent(user.email)}`;
+  const verificationUrl = `${getPrimaryClientUrl()}/verify-email/${verificationToken}?email=${encodeURIComponent(user.email)}`;
   await sendEmailVerification({
     to: user.email,
     firstName: user.profile?.firstName || 'User',
@@ -279,7 +280,7 @@ router.post('/resend-verification', asyncHandler(async (req, res) => {
       await user.save({ validateBeforeSave: false });
     }
 
-    const verificationUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/verify-email/${verificationToken}?email=${encodeURIComponent(user.email)}`;
+    const verificationUrl = `${getPrimaryClientUrl()}/verify-email/${verificationToken}?email=${encodeURIComponent(user.email)}`;
     await sendEmailVerification({
       to: user.email,
       firstName: user.profile?.firstName || 'User',
@@ -311,7 +312,7 @@ router.post('/forgot-password', asyncHandler(async (req, res) => {
     user.resetPasswordExpires = resetTokenExpires;
     await user.save({ validateBeforeSave: false });
 
-    const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password/${resetToken}`;
+    const resetUrl = `${getPrimaryClientUrl()}/reset-password/${resetToken}`;
     await sendPasswordReset({
       to: user.email,
       firstName: user.profile?.firstName || 'User',

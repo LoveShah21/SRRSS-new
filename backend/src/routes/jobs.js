@@ -4,13 +4,11 @@ const Job = require('../models/Job');
 const { authenticate, authorize } = require('../middleware/auth');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { escapeRegex } = require('../utils/security');
-const { isSafeExternalUrl, parseTrustedHosts } = require('../utils/urlValidator');
+const { isSafeExternalUrl } = require('../utils/urlValidator');
+const { getAiServiceUrl, getAiTrustedInternalHosts } = require('../utils/aiConfig');
 const logger = require('../utils/logger');
 
 const router = express.Router();
-const AI_TRUSTED_INTERNAL_HOSTS = parseTrustedHosts(
-  process.env.AI_TRUSTED_INTERNAL_HOSTS || 'localhost,127.0.0.1,::1,ai-service',
-);
 
 /**
  * GET /api/jobs — List all open jobs (with search/filter)
@@ -137,9 +135,9 @@ router.post('/', authenticate, authorize('recruiter', 'admin'), asyncHandler(asy
 
   // Call AI bias detection (non-blocking, best effort)
   try {
-    const aiUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+    const aiUrl = getAiServiceUrl();
     const aiApiKey = process.env.AI_SERVICE_API_KEY;
-    const isSafe = await isSafeExternalUrl(aiUrl, { allowInternalHosts: AI_TRUSTED_INTERNAL_HOSTS });
+    const isSafe = await isSafeExternalUrl(aiUrl, { allowInternalHosts: getAiTrustedInternalHosts() });
     if (isSafe && aiApiKey) {
       const biasResult = await axios.post(`${aiUrl}/api/detect-bias`, {
         job_description: description,
@@ -186,9 +184,9 @@ router.put('/:id', authenticate, authorize('recruiter', 'admin'), asyncHandler(a
   // Re-run bias detection if description changed
   if (req.body.description !== undefined) {
     try {
-      const aiUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+      const aiUrl = getAiServiceUrl();
       const aiApiKey = process.env.AI_SERVICE_API_KEY;
-      const isSafe = await isSafeExternalUrl(aiUrl, { allowInternalHosts: AI_TRUSTED_INTERNAL_HOSTS });
+      const isSafe = await isSafeExternalUrl(aiUrl, { allowInternalHosts: getAiTrustedInternalHosts() });
       if (isSafe && aiApiKey) {
         const biasResult = await axios.post(`${aiUrl}/api/detect-bias`, {
           job_description: req.body.description,

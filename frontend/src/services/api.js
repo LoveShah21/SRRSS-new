@@ -1,7 +1,9 @@
 import axios from 'axios';
 
+const configuredBaseUrl = (import.meta.env.VITE_API_URL || '/api').replace(/\/+$/, '');
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: configuredBaseUrl,
   headers: { 'Content-Type': 'application/json' },
   withCredentials: true, // Send httpOnly cookies with requests
 });
@@ -49,7 +51,7 @@ api.interceptors.response.use(
         isRefreshing = true;
 
         try {
-          await axios.post('/api/auth/refresh', {}, {
+          await axios.post(`${configuredBaseUrl}/auth/refresh`, {}, {
             timeout: 5000,
             withCredentials: true,
             headers: { 'Content-Type': 'application/json' },

@@ -18,6 +18,7 @@ const candidateRoutes = require('./routes/candidates');
 const reportRoutes = require('./routes/reports');
 const auditLogRoutes = require('./routes/auditLogs');
 const { errorHandler } = require('./middleware/errorHandler');
+const { getAllowedClientOrigins } = require('./utils/urlConfig');
 
 const app = express();
 
@@ -39,9 +40,7 @@ app.use(helmet({
 }));
 
 // Parse allowed origins from env (comma-separated)
-const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
-  .split(',')
-  .map((o) => o.trim());
+const allowedOrigins = getAllowedClientOrigins();
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -154,6 +153,17 @@ app.get('/api/health', (req, res) => {
     version: process.env.npm_package_version || '1.0.0',
   });
 });
+
+// ─── Serve Frontend ──────────────────────────────────────
+const path = require('path');
+const frontendPath = path.join(__dirname, '../../frontend/dist');
+if (fs.existsSync(frontendPath)) {
+  app.use(express.static(frontendPath));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api/')) return next();
+    res.sendFile(path.join(frontendPath, 'index.html'));
+  });
+}
 
 // ─── 404 Handler ─────────────────────────────────────────
 app.use((req, res) => {

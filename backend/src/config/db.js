@@ -2,10 +2,14 @@ const mongoose = require('mongoose');
 
 const connectDB = async () => {
   try {
+    const explicitTls = process.env.MONGODB_TLS;
+    const shouldUseTls = explicitTls != null
+      ? explicitTls === 'true'
+      : process.env.NODE_ENV === 'production';
+
     const conn = await mongoose.connect(process.env.MONGODB_URI, {
       dbName: process.env.DB_NAME || 'srrss',
-      // Enforce TLS in production
-      tls: process.env.NODE_ENV === 'production',
+      tls: shouldUseTls,
       // Connection pooling
       maxPoolSize: 10,
       minPoolSize: 2,

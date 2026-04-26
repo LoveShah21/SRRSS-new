@@ -7,13 +7,11 @@ const { authenticate, authorize } = require('../middleware/auth');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { createAuditEntry } = require('../middleware/auditLogger');
 const { sendStatusChange, sendApplicationReceived } = require('../services/emailService');
-const { isSafeExternalUrl, parseTrustedHosts } = require('../utils/urlValidator');
+const { isSafeExternalUrl } = require('../utils/urlValidator');
+const { getAiServiceUrl, getAiTrustedInternalHosts } = require('../utils/aiConfig');
 const logger = require('../utils/logger');
 
 const router = express.Router();
-const AI_TRUSTED_INTERNAL_HOSTS = parseTrustedHosts(
-  process.env.AI_TRUSTED_INTERNAL_HOSTS || 'localhost,127.0.0.1,::1,ai-service',
-);
 const APPLICATION_STATUS_TRANSITIONS = Object.freeze({
   applied: ['shortlisted', 'rejected'],
   shortlisted: ['interview', 'rejected'],
@@ -49,9 +47,9 @@ router.post('/', authenticate, authorize('candidate'), asyncHandler(async (req, 
   let aiExplanation = { matchedSkills: [], missingSkills: [], experienceNote: '' };
 
   try {
-    const aiUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+    const aiUrl = getAiServiceUrl();
     const aiApiKey = process.env.AI_SERVICE_API_KEY;
-    const isSafe = await isSafeExternalUrl(aiUrl, { allowInternalHosts: AI_TRUSTED_INTERNAL_HOSTS });
+    const isSafe = await isSafeExternalUrl(aiUrl, { allowInternalHosts: getAiTrustedInternalHosts() });
     if (!isSafe) {
       logger.warn('AI service URL blocked — potential SSRF target', { url: aiUrl });
     } else if (!aiApiKey) {
@@ -164,9 +162,9 @@ router.post('/job/:jobId/rank', authenticate, authorize('recruiter', 'admin'), a
   const applications = await Application.find({ jobId: req.params.jobId })
     .populate('candidateId', 'profile email');
 
-  const aiUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+  const aiUrl = getAiServiceUrl();
   const aiApiKey = process.env.AI_SERVICE_API_KEY;
-  const isSafe = await isSafeExternalUrl(aiUrl, { allowInternalHosts: AI_TRUSTED_INTERNAL_HOSTS });
+  const isSafe = await isSafeExternalUrl(aiUrl, { allowInternalHosts: getAiTrustedInternalHosts() });
 
   if (isSafe && aiApiKey) {
     await Promise.all(applications.map(async (application) => {

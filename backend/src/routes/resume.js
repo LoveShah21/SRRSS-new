@@ -5,13 +5,11 @@ const upload = require('../middleware/upload');
 const { authenticate, authorize } = require('../middleware/auth');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const storageService = require('../services/storageService');
-const { isSafeExternalUrl, parseTrustedHosts } = require('../utils/urlValidator');
+const { isSafeExternalUrl } = require('../utils/urlValidator');
+const { getAiServiceUrl, getAiTrustedInternalHosts } = require('../utils/aiConfig');
 const logger = require('../utils/logger');
 
 const router = express.Router();
-const AI_TRUSTED_INTERNAL_HOSTS = parseTrustedHosts(
-  process.env.AI_TRUSTED_INTERNAL_HOSTS || 'localhost,127.0.0.1,::1,ai-service',
-);
 
 function normalizeYear(value) {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
@@ -203,9 +201,9 @@ router.post('/upload', authenticate, authorize('candidate'), upload.single('resu
   // Call AI service to parse resume
   let parsedData = null;
   try {
-    const aiUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
+    const aiUrl = getAiServiceUrl();
     const aiApiKey = process.env.AI_SERVICE_API_KEY;
-    const isSafe = await isSafeExternalUrl(aiUrl, { allowInternalHosts: AI_TRUSTED_INTERNAL_HOSTS });
+    const isSafe = await isSafeExternalUrl(aiUrl, { allowInternalHosts: getAiTrustedInternalHosts() });
     if (isSafe && aiApiKey) {
       // Generate a temporary download URL so the AI service can fetch the file
       const tempDownloadUrl = await storageService.getDownloadUrl(key, 600); // 10 min expiry

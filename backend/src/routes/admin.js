@@ -8,6 +8,7 @@ const { authenticate, authorize } = require('../middleware/auth');
 const { asyncHandler, AppError } = require('../middleware/errorHandler');
 const { escapeRegex } = require('../utils/security');
 const { sendRecruiterCredentials } = require('../services/emailService');
+const { getPrimaryClientUrl } = require('../utils/urlConfig');
 
 const router = express.Router();
 
@@ -92,7 +93,7 @@ router.post('/recruiters', authenticate, authorize('admin'), asyncHandler(async 
     isEmailVerified: true,
   });
 
-  const loginUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/login`;
+  const loginUrl = `${getPrimaryClientUrl()}/login`;
   const deliveryResult = await sendRecruiterCredentials({
     to: recruiter.email,
     firstName: recruiter.profile?.firstName || 'Recruiter',
