@@ -78,6 +78,15 @@ def test_parse_resume_contract(client, monkeypatch, app_module_ref):
                         "description": "Built end-to-end profile automation.",
                     }
                 ],
+                "links": {
+                    "linkedIn": "https://linkedin.com/in/test-candidate",
+                    "github": "https://github.com/test-candidate",
+                    "portfolio": "",
+                    "other": [
+                        "https://linkedin.com/in/test-candidate",
+                        "https://github.com/test-candidate",
+                    ],
+                },
             }
 
     monkeypatch.setattr(app_module_ref.httpx, "AsyncClient", FakeAsyncClient)
@@ -98,6 +107,7 @@ def test_parse_resume_contract(client, monkeypatch, app_module_ref):
     assert body["education"][0]["institution"] == "Test University"
     assert body["experience"][0]["company"] == "Acme"
     assert body["projects"][0]["name"] == "Candidate Portal"
+    assert body["links"]["linkedIn"] == "https://linkedin.com/in/test-candidate"
 
 
 def test_multistep_session_flow(client, monkeypatch, app_module_ref):

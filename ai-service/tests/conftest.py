@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 # Ensure tests can run without API key setup noise.
 os.environ.setdefault("AI_REQUIRE_API_KEY", "false")
 os.environ.setdefault("AI_SERVICE_API_KEY", "test-ai-key")
+os.environ["REDIS_URL"] = ""
 
 # Add parent directory (ai-service root) to sys.path so imports work in CI
 ai_service_root = Path(__file__).parent.parent
@@ -22,7 +23,7 @@ fake_extractor_module = types.ModuleType("models.extractor")
 
 class _TestResumeStructuredExtractor:
     def parse(self, _text):
-        return {"skills": [], "education": [], "experience": []}
+        return {"skills": [], "education": [], "experience": [], "projects": [], "links": {}}
 
 
 fake_extractor_module.ResumeStructuredExtractor = _TestResumeStructuredExtractor

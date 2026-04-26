@@ -126,6 +126,12 @@ describe('Backend ↔ AI contract', () => {
         education: [{ institution: 'Test University', year: '2022', degree: 'B.Tech' }],
         experience: [{ company: 'Acme', role: 'Developer', duration: '2 years' }],
         projects: [{ name: 'Portfolio Site', techStack: ['React', 'Node.js'], description: 'Built full-stack app.' }],
+        links: {
+          linkedIn: 'https://linkedin.com/in/test-candidate',
+          github: 'https://github.com/test-candidate',
+          portfolio: '',
+          other: ['https://linkedin.com/in/test-candidate', 'https://github.com/test-candidate'],
+        },
       },
     });
 
@@ -141,6 +147,7 @@ describe('Backend ↔ AI contract', () => {
     expect(res.body.parsed).toBeDefined();
     expect(res.body.parsed.skills).toContain('React');
     expect(res.body.user.profile.projects[0].name).toBe('Portfolio Site');
+    expect(res.body.user.profile.linkedIn).toBe('https://linkedin.com/in/test-candidate');
     expect(storageService.uploadFile).toHaveBeenCalledTimes(1);
     expect(storageService.getDownloadUrl).toHaveBeenCalledTimes(1);
     expect(axios.post).toHaveBeenCalledWith(

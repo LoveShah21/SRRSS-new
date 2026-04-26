@@ -243,6 +243,11 @@ router.post('/upload', authenticate, authorize('candidate'), upload.single('resu
         updateFields['profile.projects'] = normalizedProjects;
       }
 
+      const parsedLinkedIn = cleanText(parsedData?.links?.linkedIn || parsedData?.linkedIn || '');
+      if (parsedLinkedIn) {
+        updateFields['profile.linkedIn'] = parsedLinkedIn;
+      }
+
       updateFields['profile.parsedAt'] = new Date();
 
       await User.findByIdAndUpdate(req.user._id, { $set: updateFields });

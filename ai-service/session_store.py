@@ -32,7 +32,7 @@ class SessionStore:
         self._key_prefix = key_prefix
 
         if not redis_url:
-            logger.warning("REDIS_URL not configured; using in-memory session store.")
+            logger.debug("REDIS_URL not configured; using in-memory session store.")
             return
 
         if redis is None:

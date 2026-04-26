@@ -128,11 +128,18 @@ class ProjectEntry(BaseModel):
     techStack: List[str] = Field(default_factory=list)
     description: str = ""
 
+class ResumeLinks(BaseModel):
+    linkedIn: str = ""
+    github: str = ""
+    portfolio: str = ""
+    other: List[str] = Field(default_factory=list)
+
 class ParseResumeResponse(BaseModel):
     skills: List[str]
     education: List[EducationEntry]
     experience: List[ExperienceEntry]
     projects: List[ProjectEntry] = Field(default_factory=list)
+    links: ResumeLinks = Field(default_factory=ResumeLinks)
 
 class ScoreCandidateRequest(BaseModel):
     candidate_profile: Dict[str, Any]
@@ -385,7 +392,7 @@ async def parse_resume_endpoint(
         raw_text = parse_resume(file_bytes, request.file_path)
 
         if not raw_text:
-            return ParseResumeResponse(skills=[], education=[], experience=[])
+            return ParseResumeResponse(skills=[], education=[], experience=[], projects=[], links=ResumeLinks())
 
         # 3. Optional Anonymization (PII Masking)
         if anonymize:
