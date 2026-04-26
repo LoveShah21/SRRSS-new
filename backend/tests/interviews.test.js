@@ -16,6 +16,11 @@ describe('Interviews API', () => {
       .set('Authorization', `Bearer ${candidate.token}`)
       .send({ jobId: job._id });
     application = appRes.body.application;
+
+    await request
+      .patch(`/api/applications/${application._id}/status`)
+      .set('Authorization', `Bearer ${recruiter.token}`)
+      .send({ status: 'shortlisted' });
   });
 
   describe('POST /api/interviews', () => {
@@ -57,6 +62,24 @@ describe('Interviews API', () => {
         });
 
       expect(res.status).toBe(403);
+    });
+
+    it('should reject scheduling for non-shortlisted applications', async () => {
+      const secondCandidate = await createUser({ role: 'candidate', email: `cand2-${Date.now()}@test.com` });
+      const appRes = await request
+        .post('/api/applications')
+        .set('Authorization', `Bearer ${secondCandidate.token}`)
+        .send({ jobId: job._id });
+
+      const res = await request
+        .post('/api/interviews')
+        .set('Authorization', `Bearer ${recruiter.token}`)
+        .send({
+          applicationId: appRes.body.application._id,
+          scheduledAt: new Date(Date.now() + 86400000).toISOString(),
+        });
+
+      expect(res.status).toBe(400);
     });
   });
 

@@ -21,7 +21,9 @@ export default function JobDetail() {
   const [selectedApplication, setSelectedApplication] = useState(null);
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState(false);
+  const [jobStatusUpdating, setJobStatusUpdating] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [applicationsError, setApplicationsError] = useState('');
 
   useEffect(() => {
@@ -82,13 +84,39 @@ export default function JobDetail() {
   };
 
   const handleStatusChange = async (appId, status) => {
+    if (status === 'hired' && !confirm('Mark this candidate as hired for this position?')) {
+      return;
+    }
     try {
       const res = await applicationsAPI.updateStatus(appId, { status });
       const updated = res.data.application || null;
       setApplications((prev) => prev.map((a) => (a._id === appId ? { ...a, ...updated } : a)));
       setSelectedApplication((prev) => (prev?._id === appId ? { ...prev, ...updated } : prev));
+      if (status === 'hired') {
+        setSuccess('Candidate marked as hired.');
+      }
     } catch (err) {
       setApplicationsError(err.response?.data?.error || 'Failed to update application status.');
+    }
+  };
+
+  const handleToggleJobStatus = async () => {
+    if (!job) return;
+    const nextStatus = job.status === 'open' ? 'closed' : 'open';
+    setJobStatusUpdating(true);
+    setError('');
+    setSuccess('');
+    try {
+      const res = await jobsAPI.update(id, { status: nextStatus });
+      const updatedJob = res.data?.job || null;
+      setJob((prev) => ({ ...prev, ...(updatedJob || {}), status: nextStatus }));
+      setSuccess(nextStatus === 'closed'
+        ? 'Job opening closed successfully.'
+        : 'Job opening reopened successfully.');
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to update job status.');
+    } finally {
+      setJobStatusUpdating(false);
     }
   };
 
@@ -161,6 +189,7 @@ export default function JobDetail() {
         </button>
 
         {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+        {success && <div className="alert alert-success" style={{ marginBottom: 16 }}>{success}</div>}
         {applicationsError && <div className="alert alert-error" style={{ marginBottom: 16 }}>{applicationsError}</div>}
 
         <div className="card fade-in" style={{ marginBottom: 24 }}>
@@ -177,9 +206,23 @@ export default function JobDetail() {
                 )}
               </div>
             </div>
-            <span className={`badge ${job.status === 'open' ? 'badge-success' : 'badge-danger'}`}>
-              {job.status}
-            </span>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+              <span className={`badge ${job.status === 'open' ? 'badge-success' : 'badge-danger'}`}>
+                {job.status}
+              </span>
+              {(isRecruiter || isAdmin) && (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={handleToggleJobStatus}
+                  disabled={jobStatusUpdating}
+                >
+                  {jobStatusUpdating
+                    ? 'Updating...'
+                    : job.status === 'open' ? 'Close Opening' : 'Reopen Opening'}
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="divider" />
@@ -297,7 +340,13 @@ export default function JobDetail() {
                     </tr>
                   </thead>
                   <tbody>
-                    {applications.map((app) => (
+                    {applications.map((app) => {
+                      const canShortlist = app.status === 'applied';
+                      const canReject = ['applied', 'shortlisted', 'interview'].includes(app.status);
+                      const canHire = app.status === 'interview';
+                      const canSchedule = app.status === 'shortlisted' || app.status === 'interview';
+
+                      return (
                       <tr key={app._id}>
                         <td>
                           <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
@@ -329,13 +378,22 @@ export default function JobDetail() {
                             <button className="btn btn-sm btn-secondary" onClick={() => setSelectedApplication(app)}>
                               Review
                             </button>
-                            <button className="btn btn-sm btn-secondary" onClick={() => handleStatusChange(app._id, 'shortlisted')}>
-                              Shortlist
-                            </button>
-                            <button className="btn btn-sm btn-ghost" onClick={() => handleStatusChange(app._id, 'rejected')}>
-                              Reject
-                            </button>
-                            {(app.status === 'shortlisted' || app.status === 'interview') && (
+                            {canShortlist && (
+                              <button className="btn btn-sm btn-secondary" onClick={() => handleStatusChange(app._id, 'shortlisted')}>
+                                Shortlist
+                              </button>
+                            )}
+                            {canReject && (
+                              <button className="btn btn-sm btn-ghost" onClick={() => handleStatusChange(app._id, 'rejected')}>
+                                Reject
+                              </button>
+                            )}
+                            {canHire && (
+                              <button className="btn btn-sm btn-primary" onClick={() => handleStatusChange(app._id, 'hired')}>
+                                Hire
+                              </button>
+                            )}
+                            {canSchedule && (
                               <button
                                 className="btn btn-sm btn-primary"
                                 onClick={() => navigate(`/interviews?applicationId=${app._id}`)}
@@ -346,7 +404,8 @@ export default function JobDetail() {
                           </div>
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

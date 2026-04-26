@@ -191,7 +191,30 @@ describe('Applications Routes', () => {
       expect(res.body.application.statusHistory.length).toBeGreaterThan(1);
     });
 
-    it('should transition to interview', async () => {
+    it('should reject invalid transition from applied to interview', async () => {
+      const res = await request
+        .patch(`/api/applications/${applicationId}/status`)
+        .set('Authorization', `Bearer ${recruiterToken}`)
+        .send({ status: 'interview' });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('should reject invalid transition from applied to hired', async () => {
+      const res = await request
+        .patch(`/api/applications/${applicationId}/status`)
+        .set('Authorization', `Bearer ${recruiterToken}`)
+        .send({ status: 'hired' });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('should transition from shortlisted to interview', async () => {
+      await request
+        .patch(`/api/applications/${applicationId}/status`)
+        .set('Authorization', `Bearer ${recruiterToken}`)
+        .send({ status: 'shortlisted' });
+
       const res = await request
         .patch(`/api/applications/${applicationId}/status`)
         .set('Authorization', `Bearer ${recruiterToken}`)
@@ -201,7 +224,16 @@ describe('Applications Routes', () => {
       expect(res.body.application.status).toBe('interview');
     });
 
-    it('should transition to hired', async () => {
+    it('should transition from interview to hired', async () => {
+      await request
+        .patch(`/api/applications/${applicationId}/status`)
+        .set('Authorization', `Bearer ${recruiterToken}`)
+        .send({ status: 'shortlisted' });
+      await request
+        .patch(`/api/applications/${applicationId}/status`)
+        .set('Authorization', `Bearer ${recruiterToken}`)
+        .send({ status: 'interview' });
+
       const res = await request
         .patch(`/api/applications/${applicationId}/status`)
         .set('Authorization', `Bearer ${recruiterToken}`)
@@ -209,6 +241,46 @@ describe('Applications Routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.application.status).toBe('hired');
+    });
+
+    it('should reject regression from interview to shortlisted', async () => {
+      await request
+        .patch(`/api/applications/${applicationId}/status`)
+        .set('Authorization', `Bearer ${recruiterToken}`)
+        .send({ status: 'shortlisted' });
+      await request
+        .patch(`/api/applications/${applicationId}/status`)
+        .set('Authorization', `Bearer ${recruiterToken}`)
+        .send({ status: 'interview' });
+
+      const res = await request
+        .patch(`/api/applications/${applicationId}/status`)
+        .set('Authorization', `Bearer ${recruiterToken}`)
+        .send({ status: 'shortlisted' });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('should lock terminal status transitions after hired', async () => {
+      await request
+        .patch(`/api/applications/${applicationId}/status`)
+        .set('Authorization', `Bearer ${recruiterToken}`)
+        .send({ status: 'shortlisted' });
+      await request
+        .patch(`/api/applications/${applicationId}/status`)
+        .set('Authorization', `Bearer ${recruiterToken}`)
+        .send({ status: 'interview' });
+      await request
+        .patch(`/api/applications/${applicationId}/status`)
+        .set('Authorization', `Bearer ${recruiterToken}`)
+        .send({ status: 'hired' });
+
+      const res = await request
+        .patch(`/api/applications/${applicationId}/status`)
+        .set('Authorization', `Bearer ${recruiterToken}`)
+        .send({ status: 'rejected' });
+
+      expect(res.status).toBe(400);
     });
 
     it('should reject invalid status', async () => {
@@ -243,6 +315,11 @@ describe('Applications Routes', () => {
     });
 
     it('should schedule an interview', async () => {
+      await request
+        .patch(`/api/applications/${applicationId}/status`)
+        .set('Authorization', `Bearer ${recruiterToken}`)
+        .send({ status: 'shortlisted' });
+
       const res = await request
         .patch(`/api/applications/${applicationId}/interview`)
         .set('Authorization', `Bearer ${recruiterToken}`)
@@ -255,6 +332,18 @@ describe('Applications Routes', () => {
       expect(res.status).toBe(200);
       expect(res.body.application.interview.link).toBeDefined();
       expect(res.body.application.status).toBe('interview');
+    });
+
+    it('should reject scheduling interview before shortlisting', async () => {
+      const res = await request
+        .patch(`/api/applications/${applicationId}/interview`)
+        .set('Authorization', `Bearer ${recruiterToken}`)
+        .send({
+          scheduledAt: '2026-04-15T10:00:00.000Z',
+          link: 'https://meet.google.com/abc-def-ghi',
+        });
+
+      expect(res.status).toBe(400);
     });
 
     it('should reject missing scheduledAt', async () => {

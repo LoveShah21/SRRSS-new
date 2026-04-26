@@ -113,11 +113,26 @@ export default function CandidateList() {
 
   async function handleShortlist(applicationId) {
     try {
+      setError('');
       await applicationsAPI.updateStatus(applicationId, { status: 'shortlisted' });
       lastQueryKeyRef.current = '';
       loadCandidates();
     } catch (err) {
+      setError(err.response?.data?.error || 'Failed to shortlist candidate.');
       console.error('Failed to shortlist candidate:', err);
+    }
+  }
+
+  async function handleHire(applicationId) {
+    if (!confirm('Mark this candidate as hired for this job?')) return;
+    try {
+      setError('');
+      await applicationsAPI.updateStatus(applicationId, { status: 'hired' });
+      lastQueryKeyRef.current = '';
+      loadCandidates();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to mark candidate as hired.');
+      console.error('Failed to mark candidate as hired:', err);
     }
   }
 
@@ -127,10 +142,12 @@ export default function CandidateList() {
 
   async function handleReveal(applicationId) {
     try {
+      setError('');
       await applicationsAPI.reveal(applicationId);
       lastQueryKeyRef.current = '';
       loadCandidates();
     } catch (err) {
+      setError(err.response?.data?.error || 'Failed to reveal candidate identity.');
       console.error('Failed to reveal candidate identity:', err);
     }
   }
@@ -264,6 +281,7 @@ export default function CandidateList() {
                   job={candidate.job}
                   blindMode={blindMode}
                   onShortlist={handleShortlist}
+                  onHire={handleHire}
                   onSchedule={handleSchedule}
                   onReveal={handleReveal}
                 />

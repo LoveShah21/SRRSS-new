@@ -10,6 +10,7 @@ export default function CandidateCard({
   onShortlist,
   onSchedule,
   onReveal,
+  onHire,
 }) {
   // Prepare data for Radar Chart
   const radarData = [];
@@ -189,6 +190,11 @@ export default function CandidateCard({
           {(application.status === 'shortlisted' || application.status === 'interview') && (
             <button className="btn btn-primary btn-sm" onClick={() => onSchedule?.(application._id)}>
               Schedule Interview
+            </button>
+          )}
+          {application.status === 'interview' && (
+            <button className="btn btn-primary btn-sm" onClick={() => onHire?.(application._id)}>
+              Mark Hired
             </button>
           )}
           {blindMode && !application.isIdentityRevealed && application.status !== 'applied' && (

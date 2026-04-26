@@ -51,6 +51,7 @@ export default function InterviewScheduler() {
   const [view, setView] = useState('list'); // 'list' | 'calendar' | 'week'
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState(null); // for day-detail modal
+  const [decisionLoadingKey, setDecisionLoadingKey] = useState('');
 
   const [form, setForm] = useState({
     applicationId: '',
@@ -216,9 +217,52 @@ export default function InterviewScheduler() {
     if (!confirm('Cancel this interview?')) return;
     try {
       await interviewsAPI.cancel(id);
+      setSuccess('Interview cancelled.');
       loadInterviews();
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to cancel');
+    }
+  };
+
+  const handleMarkCompleted = async (id) => {
+    try {
+      await interviewsAPI.update(id, { status: 'completed' });
+      setSuccess('Interview marked as completed.');
+      loadInterviews();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to mark interview as completed.');
+    }
+  };
+
+  const getApplicationId = (interview) => interview.applicationId?._id || interview.applicationId;
+  const getApplicationStatus = (interview) => interview.applicationId?.status || '';
+  const canShowDecisionActions = (interview) => (
+    interview.status === 'completed'
+    && !['hired', 'rejected'].includes(getApplicationStatus(interview))
+  );
+
+  const handlePostInterviewDecision = async (interview, nextStatus) => {
+    const applicationId = getApplicationId(interview);
+    if (!applicationId) {
+      setError('Unable to update candidate status: missing application reference.');
+      return;
+    }
+
+    const actionKey = `${interview._id}:${nextStatus}`;
+    setDecisionLoadingKey(actionKey);
+    setError('');
+    setSuccess('');
+
+    try {
+      await applicationsAPI.updateStatus(applicationId, { status: nextStatus });
+      setSuccess(nextStatus === 'hired'
+        ? 'Candidate marked as hired.'
+        : 'Candidate marked as rejected.');
+      await loadInterviews();
+    } catch (err) {
+      setError(err.response?.data?.error || `Failed to mark candidate as ${nextStatus}.`);
+    } finally {
+      setDecisionLoadingKey('');
     }
   };
 
@@ -672,6 +716,37 @@ export default function InterviewScheduler() {
                           {iv.notes}
                         </div>
                       )}
+                      {iv.status !== 'completed' && iv.status !== 'cancelled' && (
+                        <div style={{ marginTop: 8 }}>
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            onClick={() => handleMarkCompleted(iv._id)}
+                          >
+                            Mark Completed
+                          </button>
+                        </div>
+                      )}
+                      {canShowDecisionActions(iv) && (
+                        <div className="flex gap-sm" style={{ marginTop: 8, flexWrap: 'wrap' }}>
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            disabled={decisionLoadingKey === `${iv._id}:hired`}
+                            onClick={() => handlePostInterviewDecision(iv, 'hired')}
+                          >
+                            {decisionLoadingKey === `${iv._id}:hired` ? 'Updating...' : 'Hire Candidate'}
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            disabled={decisionLoadingKey === `${iv._id}:rejected`}
+                            onClick={() => handlePostInterviewDecision(iv, 'rejected')}
+                          >
+                            {decisionLoadingKey === `${iv._id}:rejected` ? 'Updating...' : 'Reject Candidate'}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -730,10 +805,33 @@ export default function InterviewScheduler() {
                   )}
                   {iv.status !== 'cancelled' && iv.status !== 'completed' && (
                     <div className="flex gap-sm" style={{ marginTop: 12 }}>
+                      <button className="btn btn-primary btn-sm" onClick={() => handleMarkCompleted(iv._id)}>
+                        Mark Completed
+                      </button>
                       <button className="btn btn-primary btn-sm" onClick={() => openEditInterview(iv)}>
                         Reschedule
                       </button>
                       <button className="btn btn-secondary btn-sm" onClick={() => handleCancel(iv._id)}>Cancel</button>
+                    </div>
+                  )}
+                  {canShowDecisionActions(iv) && (
+                    <div className="flex gap-sm" style={{ marginTop: 12, flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        disabled={decisionLoadingKey === `${iv._id}:hired`}
+                        onClick={() => handlePostInterviewDecision(iv, 'hired')}
+                      >
+                        {decisionLoadingKey === `${iv._id}:hired` ? 'Updating...' : 'Hire Candidate'}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        disabled={decisionLoadingKey === `${iv._id}:rejected`}
+                        onClick={() => handlePostInterviewDecision(iv, 'rejected')}
+                      >
+                        {decisionLoadingKey === `${iv._id}:rejected` ? 'Updating...' : 'Reject Candidate'}
+                      </button>
                     </div>
                   )}
                 </div>

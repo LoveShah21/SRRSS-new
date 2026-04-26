@@ -14,6 +14,19 @@ const router = express.Router();
 const AI_TRUSTED_INTERNAL_HOSTS = parseTrustedHosts(
   process.env.AI_TRUSTED_INTERNAL_HOSTS || 'localhost,127.0.0.1,::1,ai-service',
 );
+const APPLICATION_STATUS_TRANSITIONS = Object.freeze({
+  applied: ['shortlisted', 'rejected'],
+  shortlisted: ['interview', 'rejected'],
+  interview: ['hired', 'rejected'],
+  hired: [],
+  rejected: [],
+});
+
+function canTransitionApplicationStatus(currentStatus, nextStatus) {
+  if (currentStatus === nextStatus) return true;
+  const allowedTransitions = APPLICATION_STATUS_TRANSITIONS[currentStatus] || [];
+  return allowedTransitions.includes(nextStatus);
+}
 
 /**
  * POST /api/applications — Apply to a job (Candidate)
@@ -273,11 +286,27 @@ router.patch('/:id/status', authenticate, authorize('recruiter', 'admin'), async
 
   const application = await Application.findById(req.params.id)
     .populate('candidateId', 'profile email')
-    .populate('jobId', 'title');
+    .populate('jobId', 'title recruiterId');
 
   if (!application) throw new AppError('Application not found.', 404);
 
+  if (
+    req.user.role === 'recruiter'
+    && application.jobId?.recruiterId?.toString() !== req.user._id.toString()
+  ) {
+    throw new AppError('You can only update applications for your own jobs.', 403);
+  }
+
   const previousStatus = application.status;
+  if (!canTransitionApplicationStatus(previousStatus, status)) {
+    throw new AppError(`Invalid status transition from "${previousStatus}" to "${status}".`, 400);
+  }
+
+  if (previousStatus === status) {
+    res.json({ message: `Status is already "${status}".`, application });
+    return;
+  }
+
   application.status = status;
   application.statusHistory.push({
     status,
@@ -318,8 +347,20 @@ router.patch('/:id/interview', authenticate, authorize('recruiter', 'admin'), as
   const { scheduledAt, link, notes } = req.body;
   if (!scheduledAt) throw new AppError('scheduledAt is required.', 400);
 
-  const application = await Application.findById(req.params.id);
+  const application = await Application.findById(req.params.id)
+    .populate('jobId', 'recruiterId');
   if (!application) throw new AppError('Application not found.', 404);
+
+  if (
+    req.user.role === 'recruiter'
+    && application.jobId?.recruiterId?.toString() !== req.user._id.toString()
+  ) {
+    throw new AppError('You can only schedule interviews for your own jobs.', 403);
+  }
+
+  if (!canTransitionApplicationStatus(application.status, 'interview')) {
+    throw new AppError(`Cannot schedule interview when application is "${application.status}".`, 400);
+  }
 
   application.interview = { scheduledAt, link, notes };
   if (application.status !== 'interview') {

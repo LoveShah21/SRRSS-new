@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import InterviewScheduler from './InterviewScheduler';
 import * as api from '../../services/api';
@@ -56,5 +56,43 @@ describe('InterviewScheduler Page', () => {
     const combos = screen.getAllByRole('combobox');
     expect(combos[0]).toHaveValue('job-1');
     expect(combos[1]).toHaveValue('app-42');
+  });
+
+  it('shows optional hire/reject actions after interview completion and updates application status', async () => {
+    vi.spyOn(api.interviewsAPI, 'list').mockResolvedValue({
+      data: {
+        interviews: [
+          {
+            _id: 'iv-1',
+            status: 'completed',
+            scheduledAt: new Date().toISOString(),
+            duration: 45,
+            type: 'video',
+            timezone: 'UTC',
+            notes: 'Strong final round',
+            candidateId: { profile: { firstName: 'Ava', lastName: 'Ray' } },
+            jobId: { title: 'Senior Engineer' },
+            applicationId: { _id: 'app-1', status: 'interview' },
+          },
+        ],
+      },
+    });
+    vi.spyOn(api.jobsAPI, 'list').mockResolvedValue({ data: { jobs: [] } });
+    vi.spyOn(api.applicationsAPI, 'updateStatus').mockResolvedValue({
+      data: { application: { _id: 'app-1', status: 'hired' } },
+    });
+
+    renderWithRoute(<InterviewScheduler />, '/interviews');
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /hire candidate/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /reject candidate/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /hire candidate/i }));
+
+    await waitFor(() => {
+      expect(api.applicationsAPI.updateStatus).toHaveBeenCalledWith('app-1', { status: 'hired' });
+    });
   });
 });

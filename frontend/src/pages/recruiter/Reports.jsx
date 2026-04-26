@@ -81,6 +81,25 @@ export default function Reports() {
     }
   };
 
+  useEffect(() => {
+    if (!selectedCandidateReport) return undefined;
+
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setSelectedCandidateReport(null);
+      }
+    };
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', onKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [selectedCandidateReport]);
+
   const weeklyTrend = report?.summary?.weeklyTrend || [];
 
   return (
@@ -287,58 +306,65 @@ export default function Reports() {
         )}
 
         {selectedCandidateReport?.candidate && (
-          <div className="card slide-up" style={{ marginTop: 24 }}>
-            <div className="flex items-center justify-between" style={{ marginBottom: 16 }}>
-              <h2 style={{ fontSize: 18, fontWeight: 700 }}>
-                Candidate Detail — {selectedCandidateReport.candidate.profile?.firstName} {selectedCandidateReport.candidate.profile?.lastName}
-              </h2>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => setSelectedCandidateReport(null)}
-              >
-                Close
-              </button>
-            </div>
+          <div
+            className="modal-overlay"
+            onClick={(event) => {
+              if (event.target === event.currentTarget) setSelectedCandidateReport(null);
+            }}
+          >
+            <div className="modal" style={{ maxWidth: 860, maxHeight: '85vh', overflowY: 'auto' }}>
+              <div className="modal-header">
+                <h2 className="modal-title">
+                  Candidate Detail — {selectedCandidateReport.candidate.profile?.firstName} {selectedCandidateReport.candidate.profile?.lastName}
+                </h2>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setSelectedCandidateReport(null)}
+                >
+                  Close
+                </button>
+              </div>
 
-            <div style={{ marginBottom: 12, fontSize: 14 }}>
-              <strong>Email:</strong> {selectedCandidateReport.candidate.email}
-            </div>
-            <div style={{ marginBottom: 16, fontSize: 14 }}>
-              <strong>Skills:</strong> {(selectedCandidateReport.candidate.profile?.skills || []).join(', ') || '—'}
-            </div>
+              <div style={{ marginBottom: 12, fontSize: 14 }}>
+                <strong>Email:</strong> {selectedCandidateReport.candidate.email}
+              </div>
+              <div style={{ marginBottom: 16, fontSize: 14 }}>
+                <strong>Skills:</strong> {(selectedCandidateReport.candidate.profile?.skills || []).join(', ') || '—'}
+              </div>
 
-            <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>Applications</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {(selectedCandidateReport.applications || []).map((app) => (
-                <div key={app._id} style={{ padding: '10px 12px', background: 'var(--color-surface)', borderRadius: 8 }}>
-                  <div style={{ fontWeight: 600 }}>
-                    {app.job?.title || 'Unknown Job'} • {app.matchScore}%
-                  </div>
-                  <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                    Status: {app.status} • Applied: {new Date(app.appliedAt).toLocaleDateString()}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <h3 style={{ fontSize: 15, fontWeight: 700, marginTop: 16, marginBottom: 8 }}>Interviews</h3>
-            {(selectedCandidateReport.interviews || []).length === 0 ? (
-              <p style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>No interviews for this candidate yet.</p>
-            ) : (
+              <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>Applications</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {selectedCandidateReport.interviews.map((iv) => (
-                  <div key={iv._id} style={{ padding: '10px 12px', background: 'var(--color-surface)', borderRadius: 8 }}>
+                {(selectedCandidateReport.applications || []).map((app) => (
+                  <div key={app._id} style={{ padding: '10px 12px', background: 'var(--color-surface)', borderRadius: 8 }}>
                     <div style={{ fontWeight: 600 }}>
-                      {iv.job?.title || 'Interview'} • {iv.type}
+                      {app.job?.title || 'Unknown Job'} • {app.matchScore}%
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-                      {new Date(iv.scheduledAt).toLocaleString()} • {iv.status}
+                      Status: {app.status} • Applied: {new Date(app.appliedAt).toLocaleDateString()}
                     </div>
                   </div>
                 ))}
               </div>
-            )}
+
+              <h3 style={{ fontSize: 15, fontWeight: 700, marginTop: 16, marginBottom: 8 }}>Interviews</h3>
+              {(selectedCandidateReport.interviews || []).length === 0 ? (
+                <p style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>No interviews for this candidate yet.</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {selectedCandidateReport.interviews.map((iv) => (
+                    <div key={iv._id} style={{ padding: '10px 12px', background: 'var(--color-surface)', borderRadius: 8 }}>
+                      <div style={{ fontWeight: 600 }}>
+                        {iv.job?.title || 'Interview'} • {iv.type}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                        {new Date(iv.scheduledAt).toLocaleString()} • {iv.status}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

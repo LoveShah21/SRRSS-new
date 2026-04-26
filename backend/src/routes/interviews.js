@@ -33,6 +33,13 @@ router.post('/', authenticate, authorize('recruiter', 'admin'), asyncHandler(asy
     throw new AppError('You can only schedule interviews for your own job postings.', 403);
   }
 
+  if (application.status === 'applied') {
+    throw new AppError('Candidate must be shortlisted before scheduling an interview.', 400);
+  }
+  if (application.status === 'rejected' || application.status === 'hired') {
+    throw new AppError(`Cannot schedule interview when application is "${application.status}".`, 400);
+  }
+
   const scheduledDate = new Date(scheduledAt);
   const durationMins = duration || 60;
 
